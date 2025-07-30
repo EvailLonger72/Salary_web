@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Charts</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+</head>
+<body>
+    <h1>Chart Debug</h1>
+    <p>Check the console for debug information.</p>
+    
+    <script>
+        console.log('=== CHART DEBUG START ===');
+        console.log('Chart.js loaded:', typeof Chart !== 'undefined');
+        
+        // Test basic Chart.js functionality
+        if (typeof Chart !== 'undefined') {
+            console.log('Chart.js version:', Chart.version);
+            console.log('Chart.js available types:', Object.keys(Chart.registry.controllers.items));
+        }
+        
+        // Load our chart script
+        const script = document.createElement('script');
+        script.src = 'assets/js/core/chart.js';
+        script.onload = function() {
+            console.log('Chart.js script loaded');
+            console.log('Functions available:');
+            console.log('- createCalculatorCharts:', typeof createCalculatorCharts);
+            console.log('- updateDashboardChart:', typeof updateDashboardChart);
+            console.log('- initializeDashboardCharts:', typeof initializeDashboardCharts);
+            
+            if (typeof createCalculatorCharts === 'undefined') {
+                console.error('PROBLEM: createCalculatorCharts is not defined!');
+            } else {
+                console.log('SUCCESS: createCalculatorCharts is available');
+            }
+        };
+        script.onerror = function(error) {
+            console.error('Error loading chart.js script:', error);
+        };
+        document.head.appendChild(script);
+        
+        console.log('=== CHART DEBUG END ===');
+    </script>
+</body>
+</html>
