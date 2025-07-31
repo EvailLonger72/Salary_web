@@ -1,0 +1,251 @@
+/* Mobile Navigation Fixes for iOS and Android */
+
+/* iOS specific fixes */
+.ios-device {
+    -webkit-overflow-scrolling: touch;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+}
+
+.ios-device .mobile-menu-toggle {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+}
+
+.ios-device .sidebar.mobile-open {
+    -webkit-transform: translate3d(0, 0, 0);
+    transform: translate3d(0, 0, 0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+}
+
+/* Android specific fixes */
+.android-device .mobile-overlay {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
+}
+
+.android-device .nav-item {
+    -webkit-tap-highlight-color: rgba(255, 255, 255, 0.1);
+    tap-highlight-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Universal mobile fixes */
+.mobile-menu-toggle {
+    -webkit-tap-highlight-color: transparent;
+    tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    touch-action: manipulation;
+    cursor: pointer;
+}
+
+.mobile-overlay {
+    -webkit-tap-highlight-color: transparent;
+    tap-highlight-color: transparent;
+    touch-action: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+.mobile-overlay.active {
+    pointer-events: all;
+    touch-action: none;
+}
+
+/* Prevent scrolling when menu is open */
+body.mobile-menu-open {
+    overflow: hidden !important;
+    position: fixed !important;
+    width: 100% !important;
+    height: 100% !important;
+    -webkit-overflow-scrolling: auto !important;
+    touch-action: none !important;
+}
+
+/* Enhanced sidebar mobile behavior */
+.sidebar {
+    -webkit-transform: translate3d(-100%, 0, 0);
+    transform: translate3d(-100%, 0, 0);
+    -webkit-transition: -webkit-transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform;
+}
+
+.sidebar.mobile-open {
+    -webkit-transform: translate3d(0, 0, 0);
+    transform: translate3d(0, 0, 0);
+}
+
+/* Nav item touch feedback */
+.nav-item {
+    -webkit-tap-highlight-color: rgba(255, 255, 255, 0.1);
+    tap-highlight-color: rgba(255, 255, 255, 0.1);
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    touch-action: manipulation;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.nav-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.1);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+}
+
+.nav-item:active::before,
+.nav-item.nav-item-pressed::before {
+    opacity: 1;
+}
+
+/* Improved overlay behavior */
+.mobile-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    visibility: hidden;
+    z-index: 998;
+    -webkit-transition: opacity 0.3s ease, visibility 0.3s ease;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
+}
+
+.mobile-overlay.active {
+    opacity: 1;
+    visibility: visible;
+    display: block !important;
+}
+
+/* Fix for iOS Safari bottom bar issues */
+@supports (-webkit-touch-callout: none) {
+    .app-container {
+        min-height: -webkit-fill-available;
+    }
+    
+    .sidebar {
+        height: -webkit-fill-available;
+        min-height: -webkit-fill-available;
+    }
+}
+
+/* Android Chrome address bar fix */
+@media screen and (max-width: 768px) {
+    .app-container {
+        min-height: 100vh;
+        min-height: calc(100vh - env(keyboard-inset-height, 0px));
+    }
+    
+    .sidebar {
+        height: 100vh;
+        height: calc(100vh - env(keyboard-inset-height, 0px));
+    }
+}
+
+/* Prevent zoom on input focus (iOS Safari) */
+input, select, textarea {
+    font-size: 16px !important;
+}
+
+/* Smooth scrolling for better mobile experience */
+html {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+}
+
+/* Fix for mobile keyboard overlapping content */
+@media screen and (max-height: 600px) {
+    .modal-content {
+        max-height: calc(100vh - 100px);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
+/* Haptic feedback simulation for unsupported devices */
+.nav-item:active,
+.mobile-menu-toggle:active {
+    transform: scale(0.95);
+    transition: transform 0.1s ease;
+}
+
+/* Loading state for navigation items */
+.nav-item.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.nav-item.loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: 15px;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top: 2px solid rgba(255, 255, 255, 0.8);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+    .sidebar,
+    .mobile-overlay,
+    .nav-item::before {
+        transition: none !important;
+        animation: none !important;
+    }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .mobile-overlay {
+        background: rgba(0, 0, 0, 0.8);
+    }
+    
+    .nav-item::before {
+        background: rgba(255, 255, 255, 0.2);
+    }
+}
+
+/* Print styles - hide mobile navigation */
+@media print {
+    .mobile-menu-toggle,
+    .mobile-overlay {
+        display: none !important;
+    }
+    
+    .sidebar {
+        position: static !important;
+        transform: none !important;
+        width: auto !important;
+    }
+}

@@ -428,12 +428,19 @@ function updateMonthlySummary() {
   // Filter data for salary period if dates are set
   let filteredData = monthlyData;
   if (salaryStartInput.value && salaryEndInput.value) {
-    const startDate = new Date(salaryStartInput.value);
-    const endDate = new Date(salaryEndInput.value);
+    // Use createLocalDate for consistent date handling (fixes timezone issues)
+    const startDate = createLocalDate(salaryStartInput.value);
+    const endDate = createLocalDate(salaryEndInput.value);
     
     filteredData = weeklyData.filter((entry) => {
       const entryDate = createLocalDate(entry.workDate);
-      return entryDate >= startDate && entryDate <= endDate;
+      const isIncluded = entryDate >= startDate && entryDate <= endDate;
+      
+      // Debug logging for salary period filtering
+      console.log(`Salary Period Filter - ${entry.workDate}: entryDate=${entryDate.toISOString()}, startDate=${startDate.toISOString()}, endDate=${endDate.toISOString()}, included=${isIncluded}`);
+      
+      // Include both start and end dates in the range
+      return isIncluded;
     });
     
     // Recalculate statistics with filtered data
@@ -443,6 +450,10 @@ function updateMonthlySummary() {
     const totalHoursFiltered = filteredData.reduce((sum, e) => sum + e.workingTime.netHours, 0);
     const totalEarningsFiltered = filteredData.reduce((sum, e) => sum + e.payInfo.totalPay, 0);
     const takeHomeFiltered = totalEarningsFiltered * 0.777;
+    
+    // Debug summary
+    console.log(`Salary Period Summary: Found ${totalDaysFiltered} shifts in range ${salaryStartInput.value} to ${salaryEndInput.value}`);
+    console.log(`Filtered shifts:`, filteredData.map(s => s.workDate));
     
     // Use filtered data for display
     totalDays = totalDaysFiltered;

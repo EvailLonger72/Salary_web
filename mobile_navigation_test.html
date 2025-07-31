@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+    <title>Mobile Navigation Test</title>
+    
+    <!-- Mobile optimizations -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#667eea">
+    <meta name="format-detection" content="telephone=no">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="assets/css/main.css">
+    <link rel="stylesheet" href="assets/css/mobile-navigation-fix.css">
+    
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+        .test-container { max-width: 600px; margin: 0 auto; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        button { margin: 5px; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; }
+        .test-btn { background: #007bff; color: white; }
+        .nav-test { background: #667eea; color: white; min-height: 100px; display: flex; align-items: center; justify-content: center; }
+        
+        /* Mini sidebar for testing */
+        .test-sidebar {
+            position: fixed;
+            top: 0;
+            left: -250px;
+            width: 250px;
+            height: 100vh;
+            background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            z-index: 1001;
+            transition: transform 0.3s ease;
+            transform: translateX(-100%);
+        }
+        
+        .test-sidebar.mobile-open {
+            transform: translateX(0);
+        }
+        
+        .test-nav-item {
+            padding: 15px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+        
+        .test-nav-item:hover {
+            background: rgba(255,255,255,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>📱 Mobile Navigation Test</h1>
+        
+        <div class="test-section">
+            <h3>Device Detection:</h3>
+            <div id="deviceInfo"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>Mobile Navigation Tests:</h3>
+            <button class="test-btn" onclick="testToggleFunction()">🧪 Test Toggle Function</button>
+            <button class="test-btn" onclick="testTouchEvents()">👆 Test Touch Events</button>
+            <button class="test-btn" onclick="testKeyboardNav()">⌨️ Test Keyboard Navigation</button>
+            <button class="test-btn" onclick="simulateMobileNav()">📱 Simulate Mobile Menu</button>
+        </div>
+        
+        <div class="test-section">
+            <h3>Cross-Page Navigation:</h3>
+            <button class="test-btn" onclick="testPageNavigation()">🔗 Test Page Links</button>
+            <button class="test-btn" onclick="testExternalLinks()">🌐 Test External Links</button>
+        </div>
+        
+        <div class="test-section">
+            <h3>Test Results:</h3>
+            <div id="testResults"></div>
+        </div>
+        
+        <div class="test-section nav-test">
+            <p>This area simulates the main app navigation. Try the mobile menu on mobile devices!</p>
+        </div>
+    </div>
+    
+    <!-- Test mobile navigation elements -->
+    <button class="mobile-menu-toggle" onclick="toggleMobileMenu()" style="position: fixed; top: 20px; right: 20px; z-index: 1002; background: #667eea; color: white; border: none; padding: 10px; border-radius: 5px;">☰</button>
+    <div class="mobile-overlay" onclick="closeMobileMenu()"></div>
+    
+    <!-- Test sidebar -->
+    <div class="test-sidebar" id="testSidebar">
+        <div style="padding: 20px; font-size: 1.2em; font-weight: bold;">Test Navigation</div>
+        <div class="test-nav-item" onclick="log('Dashboard clicked')">📊 Dashboard</div>
+        <div class="test-nav-item" onclick="log('Calculator clicked')">💰 Calculator</div>
+        <div class="test-nav-item" onclick="log('Calendar clicked')">🗓️ Calendar</div>
+        <div class="test-nav-item" onclick="log('Tax Calculator clicked')">🧮 Tax Calculator</div>
+    </div>
+    
+    <!-- Scripts -->
+    <script src="assets/js/modules/mobile-navigation.js"></script>
+    
+    <script>
+        let testResults = [];
+        
+        function log(message, type = 'info') {
+            const resultsDiv = document.getElementById('testResults');
+            const div = document.createElement('div');
+            div.className = 'status ' + type;
+            div.innerHTML = `${new Date().toLocaleTimeString()}: ${message}`;
+            resultsDiv.appendChild(div);
+            resultsDiv.scrollTop = resultsDiv.scrollHeight;
+            testResults.push({message, type, timestamp: Date.now()});
+        }
+        
+        function detectDevice() {
+            const deviceInfo = document.getElementById('deviceInfo');
+            let info = '';
+            
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            const isAndroid = /Android/.test(navigator.userAgent);
+            const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+            const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+            
+            info += `<div class="${isIOS ? 'success' : 'info'}">iOS Device: ${isIOS ? '✅ Yes' : '❌ No'}</div>`;
+            info += `<div class="${isAndroid ? 'success' : 'info'}">Android Device: ${isAndroid ? '✅ Yes' : '❌ No'}</div>`;
+            info += `<div class="${isMobile ? 'success' : 'info'}">Mobile Device: ${isMobile ? '✅ Yes' : '❌ No'}</div>`;
+            info += `<div class="${isTouch ? 'success' : 'info'}">Touch Support: ${isTouch ? '✅ Yes' : '❌ No'}</div>`;
+            info += `<div class="info">User Agent: ${navigator.userAgent}</div>`;
+            info += `<div class="info">Screen: ${screen.width}x${screen.height}</div>`;
+            info += `<div class="info">Viewport: ${window.innerWidth}x${window.innerHeight}</div>`;
+            
+            deviceInfo.innerHTML = info;
+        }
+        
+        function testToggleFunction() {
+            log('Testing toggle function...', 'info');
+            
+            try {
+                if (typeof toggleMobileMenu === 'function') {
+                    log('✅ toggleMobileMenu function exists', 'success');
+                    
+                    // Test the function
+                    toggleMobileMenu();
+                    log('✅ toggleMobileMenu() called successfully', 'success');
+                    
+                    // Test close function
+                    if (typeof closeMobileMenu === 'function') {
+                        setTimeout(() => {
+                            closeMobileMenu();
+                            log('✅ closeMobileMenu() called successfully', 'success');
+                        }, 1000);
+                    }
+                } else {
+                    log('❌ toggleMobileMenu function not found', 'error');
+                }
+                
+                if (typeof window.MobileNavigation !== 'undefined') {
+                    log('✅ MobileNavigation class available', 'success');
+                } else {
+                    log('❌ MobileNavigation class not found', 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Error testing toggle function: ${error.message}`, 'error');
+            }
+        }
+        
+        function testTouchEvents() {
+            log('Testing touch events...', 'info');
+            
+            const toggle = document.querySelector('.mobile-menu-toggle');
+            if (toggle) {
+                log('✅ Mobile toggle button found', 'success');
+                
+                // Add test touch listeners
+                toggle.addEventListener('touchstart', function(e) {
+                    log('👆 Touch start detected on toggle button', 'success');
+                }, { passive: true });
+                
+                toggle.addEventListener('touchend', function(e) {
+                    log('👆 Touch end detected on toggle button', 'success');
+                }, { passive: true });
+                
+                log('✅ Touch event listeners added', 'success');
+            } else {
+                log('❌ Mobile toggle button not found', 'error');
+            }
+        }
+        
+        function testKeyboardNav() {
+            log('Testing keyboard navigation...', 'info');
+            
+            // Test escape key
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    log('⌨️ Escape key pressed', 'success');
+                }
+            });
+            
+            log('✅ Keyboard event listener added. Press Escape to test.', 'success');
+        }
+        
+        function simulateMobileNav() {
+            log('Simulating mobile navigation...', 'info');
+            
+            const sidebar = document.getElementById('testSidebar');
+            const overlay = document.querySelector('.mobile-overlay');
+            const toggle = document.querySelector('.mobile-menu-toggle');
+            
+            if (sidebar && overlay && toggle) {
+                // Simulate opening
+                sidebar.classList.add('mobile-open');
+                overlay.classList.add('active');
+                toggle.innerHTML = '✕';
+                
+                log('✅ Test sidebar opened', 'success');
+                
+                // Auto-close after 3 seconds
+                setTimeout(() => {
+                    sidebar.classList.remove('mobile-open');
+                    overlay.classList.remove('active');
+                    toggle.innerHTML = '☰';
+                    log('✅ Test sidebar closed automatically', 'success');
+                }, 3000);
+            } else {
+                log('❌ Test navigation elements not found', 'error');
+            }
+        }
+        
+        function testPageNavigation() {
+            log('Testing page navigation links...', 'info');
+            
+            const testUrls = [
+                'index.html',
+                'pages/calendar.html',
+                'pages/tax-calculator.html'
+            ];
+            
+            testUrls.forEach(async (url) => {
+                try {
+                    const response = await fetch(url, { method: 'HEAD' });
+                    if (response.ok) {
+                        log(`✅ ${url} - accessible`, 'success');
+                    } else {
+                        log(`❌ ${url} - HTTP ${response.status}`, 'error');
+                    }
+                } catch (error) {
+                    log(`❌ ${url} - ${error.message}`, 'error');
+                }
+            });
+        }
+        
+        function testExternalLinks() {
+            log('Testing external link navigation...', 'info');
+            
+            // Test navigation to external pages
+            const testLinks = [
+                { name: 'Calendar', url: 'pages/calendar.html' },
+                { name: 'Tax Calculator', url: 'pages/tax-calculator.html' }
+            ];
+            
+            testLinks.forEach(link => {
+                const a = document.createElement('a');
+                a.href = link.url;
+                a.target = '_blank';
+                a.textContent = `Test ${link.name}`;
+                a.onclick = () => log(`🔗 Navigating to ${link.name}`, 'info');
+                
+                const div = document.createElement('div');
+                div.appendChild(a);
+                document.getElementById('testResults').appendChild(div);
+            });
+            
+            log('✅ Test links created. Click to test external navigation.', 'success');
+        }
+        
+        // Override the mobile navigation functions for testing
+        function toggleMobileMenu() {
+            log('📱 toggleMobileMenu called', 'info');
+            if (window.MobileNavigation) {
+                window.MobileNavigation.toggleMenu();
+            } else {
+                // Fallback for testing
+                simulateMobileNav();
+            }
+        }
+        
+        function closeMobileMenu() {
+            log('📱 closeMobileMenu called', 'info');
+            if (window.MobileNavigation) {
+                window.MobileNavigation.closeMenu();
+            }
+        }
+        
+        // Initialize on load
+        window.addEventListener('load', function() {
+            detectDevice();
+            log('🚀 Mobile navigation test page loaded', 'success');
+            
+            // Auto-run basic tests
+            setTimeout(() => {
+                testToggleFunction();
+            }, 1000);
+        });
+        
+        // Log any errors
+        window.addEventListener('error', function(e) {
+            log(`❌ JavaScript Error: ${e.message}`, 'error');
+        });
+    </script>
+</body>
+</html>

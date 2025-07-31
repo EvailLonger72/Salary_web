@@ -18,6 +18,7 @@
     <!-- Styles -->
     <link rel="stylesheet" href="../assets/css/main.css" />
     <link rel="stylesheet" href="../assets/css/calendar.css" />
+    <link rel="stylesheet" href="../assets/css/mobile-navigation-fix.css" />
 
     <!-- Favicon -->
     <link
@@ -299,32 +300,8 @@
 
     <!-- Scripts -->
     <script src="../assets/js/modules/break_schedule.js"></script>
+    <script src="../assets/js/modules/mobile-navigation.js"></script>
     <script src="../assets/js/modules/calendar.js"></script>
-
-    <script>
-      // Mobile menu functions
-      function toggleMobileMenu() {
-        const sidebar = document.querySelector(".sidebar");
-        const overlay = document.querySelector(".mobile-overlay");
-        const toggle = document.querySelector(".mobile-menu-toggle");
-
-        sidebar.classList.toggle("mobile-open");
-        overlay.classList.toggle("active");
-        toggle.innerHTML = sidebar.classList.contains("mobile-open")
-          ? "✕"
-          : "☰";
-      }
-
-      function closeMobileMenu() {
-        const sidebar = document.querySelector(".sidebar");
-        const overlay = document.querySelector(".mobile-overlay");
-        const toggle = document.querySelector(".mobile-menu-toggle");
-
-        sidebar.classList.remove("mobile-open");
-        overlay.classList.remove("active");
-        toggle.innerHTML = "☰";
-      }
-    </script>
     
     <!-- Service Worker Registration -->
     <script>

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Navigation Debug Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+        .success { background: #d4edda; }
+        .error { background: #f8d7da; }
+        button { margin: 5px; padding: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Navigation Debug Test</h1>
+    
+    <div class="test">
+        <h3>Test Navigation Links:</h3>
+        <button onclick="testNavigation()">🧪 Test All Navigation</button>
+    </div>
+    
+    <div class="test">
+        <h3>Direct Navigation Tests:</h3>
+        <button onclick="navigateToCalendar()">🗓️ Go to Calendar</button>
+        <button onclick="navigateToTaxCalculator()">🧮 Go to Tax Calculator</button>
+        <button onclick="navigateToMain()">📊 Go to Main App</button>
+    </div>
+    
+    <div id="results" class="test">
+        <h3>Test Results:</h3>
+        <div id="log"></div>
+    </div>
+    
+    <script>
+        function log(message, isError = false) {
+            const logDiv = document.getElementById('log');
+            const div = document.createElement('div');
+            div.textContent = new Date().toLocaleTimeString() + ': ' + message;
+            div.style.color = isError ? 'red' : 'green';
+            logDiv.appendChild(div);
+        }
+        
+        function navigateToCalendar() {
+            try {
+                log('Attempting to navigate to calendar...');
+                window.location.href = 'pages/calendar.html';
+            } catch (error) {
+                log('Error navigating to calendar: ' + error.message, true);
+            }
+        }
+        
+        function navigateToTaxCalculator() {
+            try {
+                log('Attempting to navigate to tax calculator...');
+                window.location.href = 'pages/tax-calculator.html';
+            } catch (error) {
+                log('Error navigating to tax calculator: ' + error.message, true);
+            }
+        }
+        
+        function navigateToMain() {
+            try {
+                log('Attempting to navigate to main app...');
+                window.location.href = 'index.html';
+            } catch (error) {
+                log('Error navigating to main app: ' + error.message, true);
+            }
+        }
+        
+        function testNavigation() {
+            log('Starting navigation test...');
+            
+            // Test 1: Check if pages exist
+            fetch('pages/calendar.html')
+                .then(response => {
+                    if (response.ok) {
+                        log('✅ Calendar page exists');
+                    } else {
+                        log('❌ Calendar page not accessible: ' + response.status, true);
+                    }
+                })
+                .catch(error => {
+                    log('❌ Error checking calendar page: ' + error.message, true);
+                });
+                
+            fetch('pages/tax-calculator.html')
+                .then(response => {
+                    if (response.ok) {
+                        log('✅ Tax calculator page exists');
+                    } else {
+                        log('❌ Tax calculator page not accessible: ' + response.status, true);
+                    }
+                })
+                .catch(error => {
+                    log('❌ Error checking tax calculator page: ' + error.message, true);
+                });
+            
+            // Test 2: Check if navigation handlers work
+            const navItems = document.querySelectorAll('.nav-item');
+            log('Found ' + navItems.length + ' navigation items in current page');
+            
+            // Test 3: Simulate onclick behavior
+            try {
+                const testOnclick = new Function('window.location.href="pages/calendar.html"');
+                log('✅ onclick handler syntax is valid');
+            } catch (error) {
+                log('❌ onclick handler syntax error: ' + error.message, true);
+            }
+        }
+        
+        // Run basic checks on page load
+        window.addEventListener('load', function() {
+            log('Navigation debug page loaded');
+            log('Current URL: ' + window.location.href);
+        });
+    </script>
+</body>
+</html>
