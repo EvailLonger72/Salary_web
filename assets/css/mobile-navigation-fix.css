@@ -83,7 +83,7 @@ body.mobile-menu-open {
     transform: translate3d(0, 0, 0);
 }
 
-/* Nav item touch feedback */
+/* Nav item touch feedback - NO BLUR ON CLICK */
 .nav-item {
     -webkit-tap-highlight-color: rgba(255, 255, 255, 0.1);
     tap-highlight-color: rgba(255, 255, 255, 0.1);
@@ -96,6 +96,11 @@ body.mobile-menu-open {
     cursor: pointer;
     position: relative;
     overflow: hidden;
+    
+    /* Ensure no blur effects interfere with clicks */
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    filter: none !important;
 }
 
 .nav-item::before {
@@ -116,7 +121,7 @@ body.mobile-menu-open {
     opacity: 1;
 }
 
-/* Improved overlay behavior */
+/* Improved overlay behavior - NO BLUR */
 .mobile-overlay {
     position: fixed;
     top: 0;
@@ -129,8 +134,9 @@ body.mobile-menu-open {
     z-index: 998;
     -webkit-transition: opacity 0.3s ease, visibility 0.3s ease;
     transition: opacity 0.3s ease, visibility 0.3s ease;
-    -webkit-backdrop-filter: blur(2px);
-    backdrop-filter: blur(2px);
+    /* Removed blur effects that cause navigation issues */
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
 }
 
 .mobile-overlay.active {

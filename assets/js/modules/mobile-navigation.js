@@ -41,7 +41,14 @@ class MobileNavigationHandler {
             this.toggle = document.querySelector('.mobile-menu-toggle');
             
             if (!this.sidebar || !this.overlay || !this.toggle) {
-                console.warn('Mobile navigation elements not found');
+                console.warn('Mobile navigation elements not found, retrying...');
+                
+                // Retry after a short delay (for pages that load scripts asynchronously)
+                setTimeout(() => {
+                    if (!this.isInitialized) {
+                        this.init();
+                    }
+                }, 100);
                 return;
             }
             
@@ -54,9 +61,41 @@ class MobileNavigationHandler {
             this.isInitialized = true;
             console.log('✅ Mobile navigation initialized successfully');
             
+            // Ensure onclick handlers on nav items are not blocked
+            this.ensureOnclickHandlersWork();
+            
         } catch (error) {
             console.error('Error initializing mobile navigation:', error);
         }
+    }
+    
+    /**
+     * Ensure onclick handlers work properly (especially for external pages)
+     */
+    ensureOnclickHandlersWork() {
+        const navItemsWithOnclick = this.sidebar.querySelectorAll('.nav-item[onclick]');
+        console.log(`Found ${navItemsWithOnclick.length} navigation items with onclick handlers`);
+        
+        navItemsWithOnclick.forEach(item => {
+            // Ensure the onclick attribute is preserved and working
+            const onclickAttr = item.getAttribute('onclick');
+            if (onclickAttr) {
+                console.log(`Preserving onclick for: ${item.textContent.trim()} → ${onclickAttr}`);
+                
+                // Add a safety click handler that ensures onclick works
+                item.addEventListener('click', function(e) {
+                    // Let the onclick handler execute
+                    console.log(`Navigation item clicked: ${this.textContent.trim()}`);
+                    
+                    // Close mobile menu after a short delay
+                    setTimeout(() => {
+                        if (window.MobileNavigation && window.MobileNavigation.closeMenu) {
+                            window.MobileNavigation.closeMenu();
+                        }
+                    }, 100);
+                }, { passive: true });
+            }
+        });
     }
     
     /**
@@ -107,6 +146,8 @@ class MobileNavigationHandler {
         
         // Navigation items in sidebar
         this.setupSidebarNavigation();
+        
+        console.log('📱 Mobile navigation event listeners added');
     }
     
     /**
@@ -136,7 +177,29 @@ class MobileNavigationHandler {
     setupSidebarNavigation() {
         const navItems = this.sidebar.querySelectorAll('.nav-item');
         navItems.forEach(item => {
-            // Add touch handling for iOS/Android
+            // Skip items that have onclick handlers (external links)
+            if (item.hasAttribute('onclick')) {
+                console.log('Skipping nav item with onclick:', item.textContent.trim());
+                
+                // Add touch handling for iOS/Android without interfering with onclick
+                item.addEventListener('touchstart', (e) => {
+                    item.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+                }, { passive: true });
+                
+                item.addEventListener('touchend', (e) => {
+                    item.style.backgroundColor = '';
+                    // Close menu after navigation for external links
+                    setTimeout(() => this.closeMenu(), 50);
+                }, { passive: true });
+                
+                item.addEventListener('touchcancel', (e) => {
+                    item.style.backgroundColor = '';
+                }, { passive: true });
+                
+                return; // Skip adding click handlers for external links
+            }
+            
+            // Add touch handling for internal navigation items
             item.addEventListener('touchstart', (e) => {
                 item.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
             }, { passive: true });
@@ -289,6 +352,14 @@ class MobileNavigationHandler {
         // If touch was on overlay, close menu
         if (e.target === this.overlay) {
             this.closeMenu();
+        }
+        
+        // If touch was on a nav item with onclick, let the onclick handler work
+        const navItem = e.target.closest('.nav-item');
+        if (navItem && navItem.hasAttribute('onclick')) {
+            console.log('Touch ended on nav item with onclick, allowing onclick handler');
+            // Don't interfere with the onclick handler
+            return;
         }
     }
     
