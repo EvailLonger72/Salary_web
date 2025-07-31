@@ -66,6 +66,7 @@
     <title>Shift Pay Calculator Dashboard</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <link rel="stylesheet" href="assets/css/main.css" />
+    <link rel="stylesheet" href="assets/css/animations.css" />
 
     <!-- Critical CSS for mobile loading -->
     <style>
@@ -710,27 +711,49 @@
           item.style.touchAction = 'manipulation';
           item.style.webkitTapHighlightColor = 'rgba(102, 126, 234, 0.1)';
           
-          // Add touch start/end for immediate feedback
+          // Remove any existing conflicting event listeners
+          item.removeEventListener('touchend', item._touchEndHandler);
+          
+          // Add touch feedback without interfering with clicks
           item.addEventListener('touchstart', function(e) {
-            this.style.transform = 'scale(0.98)';
-            this.style.opacity = '0.8';
+            this.classList.add('nav-item-pressed');
           }, { passive: true });
           
           item.addEventListener('touchend', function(e) {
-            this.style.transform = '';
-            this.style.opacity = '';
+            this.classList.remove('nav-item-pressed');
           }, { passive: true });
           
-          // Ensure click events work on mobile
-          item.addEventListener('touchend', function(e) {
-            e.preventDefault();
-            // Small delay to ensure touch feedback is visible
-            setTimeout(() => {
-              if (!this.classList.contains('external-link')) {
-                this.click();
+          item.addEventListener('touchcancel', function(e) {
+            this.classList.remove('nav-item-pressed');
+          }, { passive: true });
+          
+          // Ensure navigation items are clickable by adding explicit click handler
+          if (!item.classList.contains('external-link')) {
+            item.addEventListener('click', function(e) {
+              console.log('Nav item clicked:', this.textContent.trim());
+              
+              // Ensure the click is processed
+              const targetPage = this.getAttribute('data-page');
+              if (targetPage && typeof showPage === 'function') {
+                showPage(targetPage);
+              } else if (this._navHandler) {
+                this._navHandler(e);
               }
-            }, 50);
-          }, { passive: false });
+              
+              // Close mobile menu after navigation
+              if (window.innerWidth <= 768) {
+                const sidebar = document.querySelector('.sidebar');
+                const overlay = document.querySelector('.mobile-overlay');
+                const toggle = document.querySelector('.mobile-menu-toggle');
+                
+                if (sidebar && sidebar.classList.contains('mobile-open')) {
+                  sidebar.classList.remove('mobile-open');
+                  overlay?.classList.remove('active');
+                  if (toggle) toggle.innerHTML = "☰";
+                }
+              }
+            });
+          }
         });
         
         console.log('Mobile navigation enhancements applied');
