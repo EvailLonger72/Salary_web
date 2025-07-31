@@ -1408,6 +1408,18 @@ function initializeMobileNavigation() {
     sidebar.classList.remove("mobile-open");
     mobileOverlay.classList.remove("active");
     mobileToggle.innerHTML = "☰";
+    
+    // Force restore body interactions
+    document.body.style.overflow = '';
+    document.body.style.touchAction = '';
+    document.body.style.pointerEvents = '';
+    
+    // Ensure overlay is properly hidden
+    setTimeout(() => {
+      if (!mobileOverlay.classList.contains("active")) {
+        mobileOverlay.style.display = 'none';
+      }
+    }, 300);
   }
 
   // Event listeners
@@ -1417,9 +1429,17 @@ function initializeMobileNavigation() {
   // Close menu when nav item is clicked
   const navItems = document.querySelectorAll(".nav-item");
   navItems.forEach((item) => {
-    item.addEventListener("click", () => {
+    item.addEventListener("click", (e) => {
       if (window.innerWidth <= 768) {
-        setTimeout(closeMobileMenu, 300); // Delay for smooth transition
+        // Immediate close without delay for better UX
+        closeMobileMenu();
+        
+        // Ensure body interactions are restored
+        setTimeout(() => {
+          document.body.style.overflow = '';
+          document.body.style.touchAction = '';
+          document.body.style.pointerEvents = '';
+        }, 50);
       }
     });
   });

@@ -597,6 +597,78 @@
       if ("ontouchstart" in window || navigator.maxTouchPoints > 0) {
         document.body.classList.add("touch-device");
       }
+      
+      // iOS Safari Navigation Fix - Prevent duplicate navigation
+      function ensureSingleNavigation() {
+        const isMobile = window.innerWidth <= 768;
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        
+        if (isMobile) {
+          // Hide any duplicate navigation elements
+          const duplicateNavs = document.querySelectorAll('nav:not(.sidebar), .main-content nav, .main-content .nav-menu');
+          duplicateNavs.forEach(nav => {
+            if (!nav.classList.contains('sidebar')) {
+              nav.style.display = 'none';
+            }
+          });
+          
+          // Ensure mobile toggle is visible on mobile only
+          const mobileToggle = document.querySelector('.mobile-menu-toggle');
+          if (mobileToggle) {
+            mobileToggle.style.display = 'flex';
+          }
+          
+          // Ensure sidebar is hidden by default on mobile
+          const sidebar = document.querySelector('.sidebar');
+          if (sidebar && !sidebar.classList.contains('mobile-open')) {
+            sidebar.style.transform = 'translateX(-100%)';
+          }
+        } else {
+          // Desktop: hide mobile toggle, show sidebar
+          const mobileToggle = document.querySelector('.mobile-menu-toggle');
+          if (mobileToggle) {
+            mobileToggle.style.display = 'none';
+          }
+          
+          const sidebar = document.querySelector('.sidebar');
+          if (sidebar) {
+            sidebar.style.transform = 'translateX(0)';
+            sidebar.classList.remove('mobile-open');
+          }
+        }
+      }
+      
+      // Run on load and resize
+      ensureSingleNavigation();
+      window.addEventListener('resize', ensureSingleNavigation);
+      window.addEventListener('orientationchange', () => {
+        setTimeout(ensureSingleNavigation, 100);
+      });
+      
+      // iOS Touch Fix - Reset body interactions periodically
+      function resetBodyInteractions() {
+        document.body.style.overflow = '';
+        document.body.style.touchAction = '';
+        document.body.style.pointerEvents = '';
+        document.body.style.userSelect = '';
+        document.body.style.webkitUserSelect = '';
+        
+        // Remove any lingering overlays
+        const overlay = document.querySelector('.mobile-overlay');
+        if (overlay && !overlay.classList.contains('active')) {
+          overlay.style.display = 'none';
+          overlay.style.pointerEvents = 'none';
+        }
+      }
+      
+      // Reset interactions on any touch/click
+      document.addEventListener('touchstart', resetBodyInteractions, { passive: true });
+      document.addEventListener('click', resetBodyInteractions, { passive: true });
+      
+      // Periodic reset for iOS (every 2 seconds)
+      if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+        setInterval(resetBodyInteractions, 2000);
+      }
     </script>
 
     <!-- Load external scripts -->
@@ -729,30 +801,63 @@
           
           // Ensure navigation items are clickable by adding explicit click handler
           if (!item.classList.contains('external-link')) {
-            item.addEventListener('click', function(e) {
+            // Remove any existing click handlers first
+            const newItem = item.cloneNode(true);
+            item.parentNode.replaceChild(newItem, item);
+            
+            newItem.addEventListener('click', function(e) {
+              e.preventDefault();
+              e.stopPropagation();
+              
               console.log('Nav item clicked:', this.textContent.trim());
               
-              // Ensure the click is processed
+              // Process navigation immediately
               const targetPage = this.getAttribute('data-page');
-              if (targetPage && typeof showPage === 'function') {
-                showPage(targetPage);
-              } else if (this._navHandler) {
-                this._navHandler(e);
-              }
-              
-              // Close mobile menu after navigation
-              if (window.innerWidth <= 768) {
-                const sidebar = document.querySelector('.sidebar');
-                const overlay = document.querySelector('.mobile-overlay');
-                const toggle = document.querySelector('.mobile-menu-toggle');
+              if (targetPage) {
+                // Use the original navigation logic
+                document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+                this.classList.add('active');
                 
-                if (sidebar && sidebar.classList.contains('mobile-open')) {
-                  sidebar.classList.remove('mobile-open');
-                  overlay?.classList.remove('active');
-                  if (toggle) toggle.innerHTML = "☰";
+                document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+                const targetPageElement = document.getElementById(targetPage);
+                if (targetPageElement) {
+                  targetPageElement.classList.add('active');
+                }
+                
+                // Update page content
+                if (targetPage === 'dashboard' && typeof updateDashboard === 'function') {
+                  updateDashboard();
+                } else if (targetPage === 'weekly' && typeof updateWeeklyDisplay === 'function') {
+                  updateWeeklyDisplay();
+                  if (typeof updateWeeklyChart === 'function') {
+                    updateWeeklyChart();
+                  }
                 }
               }
-            });
+              
+              // Force close mobile menu immediately
+              const sidebar = document.querySelector('.sidebar');
+              const overlay = document.querySelector('.mobile-overlay');
+              const toggle = document.querySelector('.mobile-menu-toggle');
+              
+              if (sidebar) {
+                sidebar.classList.remove('mobile-open');
+                sidebar.style.transform = 'translateX(-100%)';
+              }
+              if (overlay) {
+                overlay.classList.remove('active');
+                overlay.style.display = 'none';
+              }
+              if (toggle) {
+                toggle.innerHTML = "☰";
+              }
+              
+              // Re-enable body interactions
+              document.body.style.overflow = '';
+              document.body.style.touchAction = '';
+              document.body.style.pointerEvents = '';
+              
+            }, { passive: false });
           }
         });
         
