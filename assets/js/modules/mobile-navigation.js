@@ -177,26 +177,24 @@ class MobileNavigationHandler {
     setupSidebarNavigation() {
         const navItems = this.sidebar.querySelectorAll('.nav-item');
         navItems.forEach(item => {
-            // Skip items that have onclick handlers (external links)
+            // Skip items that have onclick handlers - let iOS/Android fix handle them
             if (item.hasAttribute('onclick')) {
-                console.log('Skipping nav item with onclick:', item.textContent.trim());
+                console.log('🔧 Skipping nav item with onclick (handled by iOS/Android fix):', item.textContent.trim());
                 
-                // Add touch handling for iOS/Android without interfering with onclick
+                // Only add visual feedback, no functional handlers to avoid conflicts
                 item.addEventListener('touchstart', (e) => {
                     item.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
                 }, { passive: true });
                 
                 item.addEventListener('touchend', (e) => {
                     item.style.backgroundColor = '';
-                    // Close menu after navigation for external links
-                    setTimeout(() => this.closeMenu(), 50);
                 }, { passive: true });
                 
                 item.addEventListener('touchcancel', (e) => {
                     item.style.backgroundColor = '';
                 }, { passive: true });
                 
-                return; // Skip adding click handlers for external links
+                return; // Skip adding any functional handlers
             }
             
             // Add touch handling for internal navigation items
