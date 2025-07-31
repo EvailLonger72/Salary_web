@@ -292,24 +292,56 @@ class MobileNavigationHandler {
      * Reset body interactions for iOS/Android
      */
     resetBodyInteractions() {
+        // Clear all potentially problematic styles
         document.body.style.overflow = '';
         document.body.style.touchAction = '';
         document.body.style.pointerEvents = '';
         document.body.style.webkitUserSelect = '';
         document.body.style.userSelect = '';
+        document.body.style.position = '';
+        document.body.style.width = '';
+        document.body.style.height = '';
+        
+        // Remove any mobile menu classes that might interfere
+        document.body.classList.remove('mobile-menu-open');
         
         // iOS specific fixes
         if (this.isIOS()) {
             document.body.style.webkitOverflowScrolling = 'touch';
+            document.body.style.webkitTouchCallout = '';
             
-            // Force refresh of touch handling
+            // Force refresh of touch handling with more aggressive approach
             setTimeout(() => {
                 document.body.style.transform = 'translate3d(0,0,0)';
+                document.body.style.webkitTransform = 'translate3d(0,0,0)';
+                
                 setTimeout(() => {
                     document.body.style.transform = '';
-                }, 10);
+                    document.body.style.webkitTransform = '';
+                    
+                    // Force a reflow to ensure changes take effect
+                    document.body.offsetHeight;
+                    
+                    console.log('🍎 iOS touch interactions reset');
+                }, 50);
             }, 100);
         }
+        
+        // Android specific fixes
+        if (this.isAndroid()) {
+            // Force touch action reset for Android
+            setTimeout(() => {
+                document.documentElement.style.touchAction = '';
+                document.body.style.touchAction = 'manipulation';
+                
+                setTimeout(() => {
+                    document.body.style.touchAction = '';
+                    console.log('🤖 Android touch interactions reset');
+                }, 50);
+            }, 100);
+        }
+        
+        console.log('📱 Body interactions reset completed');
     }
     
     /**
@@ -419,6 +451,58 @@ if (document.readyState === 'loading') {
 } else {
     window.MobileNavigation.init();
 }
+
+// Fix navigation state when page becomes visible (for returning from external pages)
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && window.MobileNavigation) {
+        console.log('📄 Page became visible, checking navigation state...');
+        
+        // Reset any problematic mobile navigation state
+        setTimeout(() => {
+            if (window.MobileNavigation.resetBodyInteractions) {
+                window.MobileNavigation.resetBodyInteractions();
+            }
+            
+            // Ensure mobile menu is closed
+            if (window.MobileNavigation.closeMenu) {
+                window.MobileNavigation.closeMenu();
+            }
+        }, 100);
+    }
+});
+
+// Fix navigation on page focus (for iOS Safari)
+window.addEventListener('focus', () => {
+    if (window.MobileNavigation && window.MobileNavigation.resetBodyInteractions) {
+        console.log('🎯 Window focused, resetting navigation...');
+        setTimeout(() => {
+            window.MobileNavigation.resetBodyInteractions();
+        }, 200);
+    }
+});
+
+// Emergency navigation reset function
+window.fixMobileNavigation = function() {
+    console.log('🚨 Emergency navigation reset triggered');
+    
+    if (window.MobileNavigation) {
+        try {
+            window.MobileNavigation.closeMenu();
+            window.MobileNavigation.resetBodyInteractions();
+            
+            // Force reinitialization if needed
+            setTimeout(() => {
+                if (!window.MobileNavigation.isInitialized) {
+                    window.MobileNavigation.init();
+                }
+            }, 300);
+            
+            console.log('✅ Emergency navigation reset completed');
+        } catch (error) {
+            console.error('❌ Emergency navigation reset failed:', error);
+        }
+    }
+};
 
 // Cleanup on page unload
 window.addEventListener('beforeunload', () => {

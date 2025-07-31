@@ -69,6 +69,32 @@ body.mobile-menu-open {
     touch-action: none !important;
 }
 
+/* iOS/Android navigation recovery fixes */
+@supports (-webkit-touch-callout: none) {
+    /* iOS specific navigation recovery */
+    body {
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        -webkit-tap-highlight-color: transparent;
+    }
+    
+    body:not(.mobile-menu-open) {
+        -webkit-overflow-scrolling: touch !important;
+        overflow-y: auto !important;
+        touch-action: manipulation !important;
+        pointer-events: auto !important;
+    }
+}
+
+/* Android specific fixes */
+@media screen and (-webkit-min-device-pixel-ratio: 0) and (min-resolution: 0.001dpcm) {
+    body:not(.mobile-menu-open) {
+        touch-action: manipulation !important;
+        pointer-events: auto !important;
+        overflow-y: auto !important;
+    }
+}
+
 /* Enhanced sidebar mobile behavior */
 .sidebar {
     -webkit-transform: translate3d(-100%, 0, 0);
