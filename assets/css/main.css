@@ -94,6 +94,22 @@ html {
     -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
+    /* Enhanced touch support */
+    -webkit-tap-highlight-color: rgba(102, 126, 234, 0.1);
+    touch-action: manipulation;
+    min-height: 48px; /* Better touch targets */
+}
+
+.nav-item.external-link {
+    position: relative;
+}
+
+.nav-item.external-link::after {
+    content: "↗";
+    position: absolute;
+    right: 15px;
+    opacity: 0.6;
+    font-size: 0.8rem;
 }
 
 .nav-item:hover {

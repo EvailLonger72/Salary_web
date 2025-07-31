@@ -56,8 +56,9 @@ function initializeNavigation() {
   // Navigation setup
 
   navItems.forEach((item, index) => {
-    // Skip items that have onclick handlers (external links)
-    if (item.hasAttribute("onclick")) {
+    // Skip items that have onclick handlers (external links) or external-link class
+    if (item.hasAttribute("onclick") || item.classList.contains("external-link")) {
+      console.log("Skipping external nav item:", item.textContent.trim());
       return;
     }
 

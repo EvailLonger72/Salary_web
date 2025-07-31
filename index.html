@@ -161,7 +161,7 @@
           </li>
           <!-- NEW: Calendar View Link -->
           <li
-            class="nav-item"
+            class="nav-item external-link"
             onclick="window.location.href='pages/calendar.html'"
           >
             <span class="nav-icon">🗓️</span>
@@ -169,7 +169,7 @@
           </li>
           <!-- NEW: Tax Calculator Link -->
           <li
-            class="nav-item"
+            class="nav-item external-link"
             onclick="window.location.href='pages/tax-calculator.html'"
           >
             <span class="nav-icon">🧮</span>
@@ -679,7 +679,7 @@
         });
       }
 
-      // Only call backup navigation if main navigation failed
+      // Enhanced navigation setup with mobile support
       setTimeout(() => {
         const navItems = document.querySelectorAll(".nav-item[data-page]");
         let hasWorkingNav = false;
@@ -696,7 +696,45 @@
         } else {
           console.log("Main navigation is working properly");
         }
-      }, 1000);
+        
+        // Add mobile touch improvements
+        enhanceMobileNavigation();
+      }, 500); // Reduced timeout for faster initialization
+      
+      // Mobile navigation enhancement function
+      function enhanceMobileNavigation() {
+        const navItems = document.querySelectorAll('.nav-item');
+        
+        navItems.forEach(item => {
+          // Ensure proper touch events
+          item.style.touchAction = 'manipulation';
+          item.style.webkitTapHighlightColor = 'rgba(102, 126, 234, 0.1)';
+          
+          // Add touch start/end for immediate feedback
+          item.addEventListener('touchstart', function(e) {
+            this.style.transform = 'scale(0.98)';
+            this.style.opacity = '0.8';
+          }, { passive: true });
+          
+          item.addEventListener('touchend', function(e) {
+            this.style.transform = '';
+            this.style.opacity = '';
+          }, { passive: true });
+          
+          // Ensure click events work on mobile
+          item.addEventListener('touchend', function(e) {
+            e.preventDefault();
+            // Small delay to ensure touch feedback is visible
+            setTimeout(() => {
+              if (!this.classList.contains('external-link')) {
+                this.click();
+              }
+            }, 50);
+          }, { passive: false });
+        });
+        
+        console.log('Mobile navigation enhancements applied');
+      }
     </script>
 
     <script>
