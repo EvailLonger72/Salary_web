@@ -101,6 +101,28 @@ function initializeNavigation() {
             updateWeeklyChart();
           }
         }
+
+        // Close mobile menu if on mobile
+        if (window.innerWidth <= 768) {
+          const sidebar = document.querySelector('.sidebar');
+          const overlay = document.querySelector('.mobile-overlay');
+          const toggle = document.querySelector('.mobile-menu-toggle');
+          
+          if (sidebar) {
+            sidebar.classList.remove('mobile-open');
+          }
+          if (overlay) {
+            overlay.classList.remove('active');
+          }
+          if (toggle) {
+            toggle.innerHTML = "☰";
+          }
+          
+          // Restore body interactions
+          document.body.style.overflow = '';
+          document.body.style.touchAction = '';
+          document.body.style.pointerEvents = '';
+        }
       } catch (error) {
         console.error("Navigation error:", error);
       }
@@ -1426,23 +1448,8 @@ function initializeMobileNavigation() {
   mobileToggle.addEventListener("click", toggleMobileMenu);
   mobileOverlay.addEventListener("click", closeMobileMenu);
 
-  // Close menu when nav item is clicked
-  const navItems = document.querySelectorAll(".nav-item");
-  navItems.forEach((item) => {
-    item.addEventListener("click", (e) => {
-      if (window.innerWidth <= 768) {
-        // Immediate close without delay for better UX
-        closeMobileMenu();
-        
-        // Ensure body interactions are restored
-        setTimeout(() => {
-          document.body.style.overflow = '';
-          document.body.style.touchAction = '';
-          document.body.style.pointerEvents = '';
-        }, 50);
-      }
-    });
-  });
+  // Note: Navigation items already handle mobile menu closing in their main handlers
+  // No need for additional click listeners here
 
   // Close menu on escape key
   document.addEventListener("keydown", (e) => {

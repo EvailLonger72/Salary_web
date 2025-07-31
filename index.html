@@ -744,6 +744,28 @@
                 updateWeeklyChart();
               }
             }
+
+            // Close mobile menu if on mobile
+            if (window.innerWidth <= 768) {
+              const sidebar = document.querySelector('.sidebar');
+              const overlay = document.querySelector('.mobile-overlay');
+              const toggle = document.querySelector('.mobile-menu-toggle');
+              
+              if (sidebar) {
+                sidebar.classList.remove('mobile-open');
+              }
+              if (overlay) {
+                overlay.classList.remove('active');
+              }
+              if (toggle) {
+                toggle.innerHTML = "☰";
+              }
+              
+              // Restore body interactions
+              document.body.style.overflow = '';
+              document.body.style.touchAction = '';
+              document.body.style.pointerEvents = '';
+            }
           };
 
           // Store handler reference and add listener
@@ -774,19 +796,16 @@
         enhanceMobileNavigation();
       }, 500); // Reduced timeout for faster initialization
       
-      // Mobile navigation enhancement function
+      // Simple mobile navigation enhancement function
       function enhanceMobileNavigation() {
         const navItems = document.querySelectorAll('.nav-item');
         
         navItems.forEach(item => {
-          // Ensure proper touch events
+          // Only add touch styling, don't interfere with click handlers
           item.style.touchAction = 'manipulation';
           item.style.webkitTapHighlightColor = 'rgba(102, 126, 234, 0.1)';
           
-          // Remove any existing conflicting event listeners
-          item.removeEventListener('touchend', item._touchEndHandler);
-          
-          // Add touch feedback without interfering with clicks
+          // Add visual feedback for touch
           item.addEventListener('touchstart', function(e) {
             this.classList.add('nav-item-pressed');
           }, { passive: true });
@@ -798,67 +817,6 @@
           item.addEventListener('touchcancel', function(e) {
             this.classList.remove('nav-item-pressed');
           }, { passive: true });
-          
-          // Ensure navigation items are clickable by adding explicit click handler
-          if (!item.classList.contains('external-link')) {
-            // Remove any existing click handlers first
-            const newItem = item.cloneNode(true);
-            item.parentNode.replaceChild(newItem, item);
-            
-            newItem.addEventListener('click', function(e) {
-              e.preventDefault();
-              e.stopPropagation();
-              
-              console.log('Nav item clicked:', this.textContent.trim());
-              
-              // Process navigation immediately
-              const targetPage = this.getAttribute('data-page');
-              if (targetPage) {
-                // Use the original navigation logic
-                document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
-                this.classList.add('active');
-                
-                document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
-                const targetPageElement = document.getElementById(targetPage);
-                if (targetPageElement) {
-                  targetPageElement.classList.add('active');
-                }
-                
-                // Update page content
-                if (targetPage === 'dashboard' && typeof updateDashboard === 'function') {
-                  updateDashboard();
-                } else if (targetPage === 'weekly' && typeof updateWeeklyDisplay === 'function') {
-                  updateWeeklyDisplay();
-                  if (typeof updateWeeklyChart === 'function') {
-                    updateWeeklyChart();
-                  }
-                }
-              }
-              
-              // Force close mobile menu immediately
-              const sidebar = document.querySelector('.sidebar');
-              const overlay = document.querySelector('.mobile-overlay');
-              const toggle = document.querySelector('.mobile-menu-toggle');
-              
-              if (sidebar) {
-                sidebar.classList.remove('mobile-open');
-                sidebar.style.transform = 'translateX(-100%)';
-              }
-              if (overlay) {
-                overlay.classList.remove('active');
-                overlay.style.display = 'none';
-              }
-              if (toggle) {
-                toggle.innerHTML = "☰";
-              }
-              
-              // Re-enable body interactions
-              document.body.style.overflow = '';
-              document.body.style.touchAction = '';
-              document.body.style.pointerEvents = '';
-              
-            }, { passive: false });
-          }
         });
         
         console.log('Mobile navigation enhancements applied');
