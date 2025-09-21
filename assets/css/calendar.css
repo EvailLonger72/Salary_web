@@ -1102,25 +1102,6 @@
   }
 }
 
-/* Dark Mode Support (if implemented) */
-@media (prefers-color-scheme: dark) {
-  .calendar-container,
-  .monthly-summary,
-  .quick-stats .stat-card {
-    background: rgba(30, 30, 30, 0.95);
-    color: #e0e0e0;
-  }
-  
-  .calendar-day {
-    background: rgba(40, 40, 40, 0.9);
-    border-color: #404040;
-    color: #e0e0e0;
-  }
-  
-  .day-header {
-    color: #a0a0a0;
-  }
-}
 
 /* Reduced Motion Support */
 @media (prefers-reduced-motion: reduce) {
