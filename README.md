@@ -25,7 +25,7 @@
 ### 📅 ပြီးပြည့်စုံသော Shift Management
 - **C341 Day Shift**: 06:30〜17:30 (9h 20m net working)
 - **C342 Night Shift**: 16:45〜01:25 (7h net working)
-- **Calendar View**: လပတ်စဉ် shift များကို calendar ပုံစံဖြင့် ကြည့်ရှုခြင်း
+
 - **Shift Editing**: ရှိပြီးသား shift များကို ပြင်ဆင်ခြင်း
 - **Delete Functionality**: မလိုအပ်သော entries များကို ဖျက်ခြင်း
 - **Monthly Summary**: လစဉ် အချုပ်အခြာ statistics များ
@@ -35,7 +35,7 @@
 - **Touch-Friendly**: လက်ညှိုး touch အတွက် အထူးဒီဇိုင်း
 - **Responsive Layout**: မည်သည့် screen size တွင်မဆို အလုပ်လုပ်ခြင်း
 - **Safe Area Support**: iPhone notch နှင့် Android navigation bar support
-- **Swipe Gestures**: calendar navigation အတွက် swipe gestures
+
 
 ### 🧮 Tax Calculator (အခွန်တွက်စက်)
 - **Income Tax Calculation**: ဝင်ငွေအခွန် တွက်ချက်ခြင်း
@@ -87,9 +87,9 @@ Salary_Checker-main/
 │       │   └── chart.js           # Advanced chart configurations
 │       └── modules/
 │           ├── break_schedule.js   # Shift and break time data
-│           └── calendar.js         # Calendar functionality
+
 ├── pages/
-│   ├── calendar.html              # Calendar view page
+
 │   └── tax-calculator.html        # Tax calculation page
 ├── test-charts.html               # Chart testing page
 ├── debug-charts.html              # Debug utilities

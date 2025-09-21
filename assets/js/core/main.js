@@ -303,84 +303,13 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 });
 
-/**
- * Handle calendar date when navigating to calculator
- */
-function handleCalendarDate() {
-  // Check if coming from calendar for new shift
-  const newShiftDate = localStorage.getItem("newShiftDate");
-  if (newShiftDate) {
-    // Set the date in calculator
-    const workDateInput = document.getElementById("workDate");
-    if (workDateInput) {
-      workDateInput.value = newShiftDate;
-      // Calendar date set
-    }
-    // Clear the stored date
-    localStorage.removeItem("newShiftDate");
-    return true; // Indicates calendar date was set
-  }
-  return false; // No calendar date
-}
 
-// Check if coming from calendar for new shift on page load
-if (localStorage.getItem("newShiftDate")) {
-  // Wait for DOM to be ready, then handle calendar date
-  document.addEventListener("DOMContentLoaded", function() {
-    setTimeout(() => {
-      handleCalendarDate();
-      showPage("calculator");
-    }, 100);
-  });
-}
 
-/**
- * Handle edit shift data from calendar
- */
-function handleEditShiftData() {
-  const editShiftData = localStorage.getItem("editShiftData");
-  if (editShiftData) {
-    const shiftData = safeJSONParse(editShiftData, null);
-    if (!shiftData) {
-      console.warn("Invalid edit shift data, removing from storage");
-      localStorage.removeItem("editShiftData");
-      return false;
-    }
 
-    // Populate calculator fields
-    if (document.getElementById("workDate")) {
-      document.getElementById("workDate").value = shiftData.date;
-    }
-    if (document.getElementById("shiftType")) {
-      document.getElementById("shiftType").value = shiftData.shiftType;
-      updateShiftInfo(); // Update break display
-    }
-    if (document.getElementById("startTime")) {
-      document.getElementById("startTime").value = shiftData.startTime;
-    }
-    if (document.getElementById("endTime")) {
-      document.getElementById("endTime").value = shiftData.endTime;
-    }
 
-    // Clear the stored data
-    localStorage.removeItem("editShiftData");
-    
-    // Edit shift data loaded
-    showMessage("Edit mode: Modify shift details and calculate", "info");
-    return true; // Indicates edit data was loaded
-  }
-  return false;
-}
 
-// Check if coming from calendar for edit on page load
-if (localStorage.getItem("editShiftData")) {
-  document.addEventListener("DOMContentLoaded", function() {
-    setTimeout(() => {
-      handleEditShiftData();
-      showPage("calculator");
-    }, 100);
-  });
-}
+
+
 
 // Helper function to show specific page
 function showPage(pageName) {
@@ -406,15 +335,7 @@ function showPage(pageName) {
   }
 
   // Handle special page-specific actions
-  if (pageName === "calculator") {
-    // Check for calendar date or edit data when showing calculator
-    setTimeout(() => {
-      const hasCalendarDate = handleCalendarDate();
-      if (!hasCalendarDate) {
-        handleEditShiftData();
-      }
-    }, 50);
-  }
+
 }
 /**
  * Calculate pay with improved logic for overtime and night rates

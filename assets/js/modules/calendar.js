@@ -1,1373 +1,558 @@
-// calendar.js - Calendar functionality for Shift Pay Calculator
+/**
+ * Calendar Module for ShiftPay Calculator
+ * Handles calendar view, shift management, and monthly summaries
+ */
 
-// Global variables
-let currentDate = new Date();
-let selectedDate = null;
-let weeklyData = JSON.parse(localStorage.getItem("weeklyData") || "[]");
-
-// Month names
-const monthNames = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
-
-// Initialize calendar on page load
-document.addEventListener("DOMContentLoaded", function () {
-  // Safely reload data from localStorage to ensure sync with main app
-  try {
-    weeklyData = JSON.parse(localStorage.getItem("weeklyData") || "[]");
-  } catch (error) {
-    console.warn("Failed to load weeklyData from localStorage:", error);
-    weeklyData = [];
-  }
-  
-  renderCalendar();
-  initializeSalaryPeriod();
-  updateMonthlySummary();
-  setupSwipeGestures();
-  initializeBreakToggle();
-});
-
-// Refresh calendar when page becomes visible (useful when navigating back from main app)
-document.addEventListener("visibilitychange", function() {
-  if (!document.hidden) {
-    // Reload data in case it was updated in another tab/window
-    const updatedData = JSON.parse(localStorage.getItem("weeklyData") || "[]");
-    if (JSON.stringify(updatedData) !== JSON.stringify(weeklyData)) {
-      weeklyData = updatedData;
-      renderCalendar();
-      updateMonthlySummary();
+// Calendar state management
+class CalendarManager {
+    constructor() {
+        this.currentDate = new Date();
+        this.selectedDate = null;
+        this.weeklyData = [];
+        this.monthNames = [
+            'January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December'
+        ];
+        this.dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        
+        this.init();
     }
     
-    // Update pay preview if form is open (in case settings changed)
-    const shiftForm = document.getElementById("shiftForm");
-    if (shiftForm && shiftForm.style.display !== "none") {
-      updatePayPreview();
+    // Initialize calendar
+    init() {
+        this.loadData();
+        this.setupEventListeners();
+        this.render();
+        this.updateMonthlySummary();
     }
-  }
-});
-
-// Listen for storage changes (when settings are updated in main app)
-window.addEventListener('storage', function(event) {
-  if (event.key === 'weeklyData') {
-    weeklyData = JSON.parse(event.newValue || "[]");
-    renderCalendar();
-    updateMonthlySummary();
-  } else if (event.key === 'settings') {
-    // Refresh pay preview if form is open
-    const shiftForm = document.getElementById("shiftForm");
-    if (shiftForm && shiftForm.style.display !== "none") {
-      updatePayPreview();
+    
+    // Load data from localStorage
+    loadData() {
+        try {
+            const stored = localStorage.getItem('weeklyData');
+            this.weeklyData = stored ? JSON.parse(stored) : [];
+        } catch (error) {
+            console.error('Error loading calendar data:', error);
+            this.weeklyData = [];
+        }
     }
-    updateMonthlySummary(); // Recalculate with new rates
-  }
-});
-
-/**
- * Render calendar for current month
- */
-function renderCalendar() {
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth();
-
-  // Update month/year display
-  document.getElementById(
-    "currentMonthYear"
-  ).textContent = `${monthNames[month]} ${year}`;
-
-  // Clear existing calendar
-  const calendarGrid = document.getElementById("calendarGrid");
-  calendarGrid.innerHTML = "";
-
-  // Get first day of month and number of days
-  const firstDay = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const daysInPrevMonth = new Date(year, month, 0).getDate();
-
-  // Calculate total cells needed (6 weeks × 7 days = 42)
-  const totalCells = 42;
-
-  // Add previous month's trailing days
-  for (let i = firstDay - 1; i >= 0; i--) {
-    const dayCell = createDayCell(
-      daysInPrevMonth - i,
-      month - 1,
-      year,
-      true // inactive
-    );
-    calendarGrid.appendChild(dayCell);
-  }
-
-  // Add current month's days
-  for (let day = 1; day <= daysInMonth; day++) {
-    const dayCell = createDayCell(day, month, year, false);
-    calendarGrid.appendChild(dayCell);
-  }
-
-  // Add next month's leading days
-  const cellsUsed = firstDay + daysInMonth;
-  const remainingCells = totalCells - cellsUsed;
-
-  for (let day = 1; day <= remainingCells; day++) {
-    const dayCell = createDayCell(
-      day,
-      month + 1,
-      year,
-      true // inactive
-    );
-    calendarGrid.appendChild(dayCell);
-  }
-}
-
-/**
- * Create a day cell for the calendar
- */
-function createDayCell(day, month, year, isInactive) {
-  const dayCell = document.createElement("div");
-  dayCell.className = "calendar-day";
-
-  if (isInactive) {
-    dayCell.classList.add("inactive");
-  }
-
-  // Create date object for this cell
-  const cellDate = new Date(year, month, day);
-  const dateStr = getLocalDateString(cellDate);
-
-  // Check if today (using local date comparison)
-  const today = new Date();
-  const todayStr = getLocalDateString(today);
-  if (!isInactive && dateStr === todayStr) {
-    dayCell.classList.add("today");
-  }
-
-  // Check if pay day (25th)
-  if (!isInactive && day === 25) {
-    dayCell.classList.add("pay-day");
-  }
-
-  // Day number
-  const dayNumber = document.createElement("div");
-  dayNumber.className = "day-number";
-  dayNumber.textContent = day;
-  dayCell.appendChild(dayNumber);
-
-  // Check for shift data
-  const shiftData = getShiftDataForDate(dateStr);
-  if (shiftData) {
-    // Add shift indicator
-    const shiftIndicator = document.createElement("div");
-    shiftIndicator.className = "shift-indicator";
-
-    if (shiftData.shiftType === "C341") {
-      shiftIndicator.classList.add("day-shift");
-      shiftIndicator.innerHTML = "☀️";
-    } else if (shiftData.shiftType === "C342") {
-      shiftIndicator.classList.add("night-shift");
-      shiftIndicator.innerHTML = "🌙";
+    
+    // Save data to localStorage
+    saveData() {
+        try {
+            localStorage.setItem('weeklyData', JSON.stringify(this.weeklyData));
+            return true;
+        } catch (error) {
+            console.error('Error saving calendar data:', error);
+            return false;
+        }
     }
-
-    dayCell.appendChild(shiftIndicator);
-
-    // Add earnings amount
-    const earnings = document.createElement("div");
-    earnings.className = "day-earnings";
-    earnings.textContent = `¥${Math.round(
-      shiftData.payInfo.totalPay
-    ).toLocaleString()}`;
-    dayCell.appendChild(earnings);
-  }
-
-  // Add click handler
-  if (!isInactive) {
-    dayCell.addEventListener("click", () => showDayDetails(cellDate));
-    dayCell.style.cursor = "pointer";
-  }
-
-  return dayCell;
-}
-
-/**
- * Get shift data for a specific date
- */
-function getShiftDataForDate(dateStr) {
-  return weeklyData.find((entry) => entry.workDate === dateStr);
-}
-
-/**
- * Show day details in modal
- */
-function showDayDetails(date) {
-  selectedDate = date;
-  const dateStr = getLocalDateString(date);
-  const shiftData = getShiftDataForDate(dateStr);
-
-  // Update modal header
-  const modalDate = document.getElementById("modalDate");
-  modalDate.textContent = date.toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-
-  // Update modal body
-  const modalBody = document.getElementById("modalBody");
-
-  if (shiftData) {
-    modalBody.innerHTML = `
-            <div class="shift-details">
-                <div class="detail-item">
-                    <span class="detail-label">Shift Type:</span>
-                    <span class="detail-value">${shiftData.shiftType}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Time:</span>
-                    <span class="detail-value">${shiftData.startTime} - ${
-      shiftData.endTime
-    }</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Total Hours:</span>
-                    <span class="detail-value">${(
-                      shiftData.workingTime.totalMinutes / 60
-                    ).toFixed(2)}h</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Break Time:</span>
-                    <span class="detail-value">${(
-                      shiftData.workingTime.breakMinutes / 60
-                    ).toFixed(2)}h</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Net Working:</span>
-                    <span class="detail-value">${shiftData.workingTime.netHours.toFixed(
-                      2
-                    )}h</span>
-                </div>
-                <div class="detail-separator"></div>
-                <div class="detail-item">
-                    <span class="detail-label">Regular Pay:</span>
-                    <span class="detail-value">¥${Math.round(
-                      shiftData.payInfo.regularPay
-                    ).toLocaleString()}</span>
-                </div>
-                ${
-                  shiftData.payInfo.overtimeHours > 0
-                    ? `
-                <div class="detail-item">
-                    <span class="detail-label">Overtime Pay:</span>
-                    <span class="detail-value">¥${Math.round(
-                      shiftData.payInfo.overtimePay
-                    ).toLocaleString()}</span>
-                </div>
-                `
-                    : ""
+    
+    // Setup event listeners
+    setupEventListeners() {
+        // Keyboard navigation
+        document.addEventListener('keydown', (event) => {
+            switch(event.key) {
+                case 'ArrowLeft':
+                    this.previousMonth();
+                    break;
+                case 'ArrowRight':
+                    this.nextMonth();
+                    break;
+                case 'Escape':
+                    this.closeModal();
+                    break;
+            }
+        });
+        
+        // Touch/swipe support for mobile
+        this.setupTouchEvents();
+        
+        // Modal close on outside click
+        window.addEventListener('click', (event) => {
+            const modal = document.getElementById('shiftModal');
+            if (event.target === modal) {
+                this.closeModal();
+            }
+        });
+    }
+    
+    // Setup touch events for mobile swipe
+    setupTouchEvents() {
+        let touchStartX = 0;
+        let touchEndX = 0;
+        
+        document.addEventListener('touchstart', (event) => {
+            touchStartX = event.changedTouches[0].screenX;
+        });
+        
+        document.addEventListener('touchend', (event) => {
+            touchEndX = event.changedTouches[0].screenX;
+            this.handleSwipe(touchStartX, touchEndX);
+        });
+    }
+    
+    // Handle swipe gestures
+    handleSwipe(startX, endX) {
+        const swipeThreshold = 50;
+        const diff = startX - endX;
+        
+        if (Math.abs(diff) > swipeThreshold) {
+            if (diff > 0) {
+                // Swipe left - next month
+                this.nextMonth();
+            } else {
+                // Swipe right - previous month
+                this.previousMonth();
+            }
+        }
+    }
+    
+    // Render calendar
+    render() {
+        this.updateMonthDisplay();
+        this.renderCalendarGrid();
+    }
+    
+    // Update month display
+    updateMonthDisplay() {
+        const monthElement = document.getElementById('currentMonth');
+        if (monthElement) {
+            const year = this.currentDate.getFullYear();
+            const month = this.currentDate.getMonth();
+            monthElement.textContent = `${this.monthNames[month]} ${year}`;
+        }
+    }
+    
+    // Render calendar grid
+    renderCalendarGrid() {
+        const calendarBody = document.getElementById('calendarBody');
+        if (!calendarBody) return;
+        
+        const year = this.currentDate.getFullYear();
+        const month = this.currentDate.getMonth();
+        
+        // Get calendar data
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        const daysInMonth = lastDay.getDate();
+        const startingDayOfWeek = firstDay.getDay();
+        
+        // Get previous month data
+        const prevMonth = new Date(year, month, 0);
+        const daysInPrevMonth = prevMonth.getDate();
+        
+        // Clear existing content
+        calendarBody.innerHTML = '';
+        
+        let date = 1;
+        let nextMonthDate = 1;
+        
+        // Create calendar rows
+        for (let week = 0; week < 6; week++) {
+            const row = document.createElement('tr');
+            
+            for (let day = 0; day < 7; day++) {
+                const cell = document.createElement('td');
+                const button = document.createElement('button');
+                button.className = 'calendar-day';
+                
+                if (week === 0 && day < startingDayOfWeek) {
+                    // Previous month days
+                    const prevDate = daysInPrevMonth - startingDayOfWeek + day + 1;
+                    button.innerHTML = `<div class="day-number">${prevDate}</div>`;
+                    button.classList.add('other-month');
+                    button.onclick = () => this.navigateToMonth(-1);
+                } else if (date > daysInMonth) {
+                    // Next month days
+                    button.innerHTML = `<div class="day-number">${nextMonthDate}</div>`;
+                    button.classList.add('other-month');
+                    button.onclick = () => this.navigateToMonth(1);
+                    nextMonthDate++;
+                } else {
+                    // Current month days
+                    const currentDateStr = this.formatDate(year, month, date);
+                    const dayShifts = this.getShiftsForDate(currentDateStr);
+                    
+                    button.innerHTML = this.renderDayContent(date, dayShifts);
+                    
+                    // Add classes
+                    if (dayShifts.length > 0) {
+                        button.classList.add('has-shift');
+                    }
+                    
+                    if (this.isToday(year, month, date)) {
+                        button.classList.add('today');
+                    }
+                    
+                    button.onclick = () => this.showDayDetails(currentDateStr, dayShifts);
+                    date++;
                 }
-                ${
-                  shiftData.payInfo.hasNightHours
-                    ? `
-                <div class="detail-item">
-                    <span class="detail-label">Night Premium:</span>
-                    <span class="detail-value">¥${Math.round(
-                      shiftData.payInfo.nightPay
-                    ).toLocaleString()}</span>
+                
+                cell.appendChild(button);
+                row.appendChild(cell);
+            }
+            
+            calendarBody.appendChild(row);
+            
+            // Break if we've filled all days
+            if (date > daysInMonth) break;
+        }
+    }
+    
+    // Render day content
+    renderDayContent(date, shifts) {
+        let content = `<div class="day-number">${date}</div>`;
+        
+        if (shifts.length > 0) {
+            content += '<div class="shift-info">';
+            shifts.forEach(shift => {
+                const shiftType = shift.shiftType || 'Unknown';
+                const totalPay = shift.payInfo ? shift.payInfo.totalPay : 0;
+                content += `<div class="shift-badge">${shiftType}</div>`;
+                content += `<div class="shift-badge">¥${totalPay.toLocaleString()}</div>`;
+            });
+            content += '</div>';
+        }
+        
+        return content;
+    }
+    
+    // Format date string
+    formatDate(year, month, date) {
+        return `${year}-${String(month + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
+    }
+    
+    // Get shifts for specific date
+    getShiftsForDate(dateStr) {
+        return this.weeklyData.filter(shift => shift.workDate === dateStr);
+    }
+    
+    // Check if date is today
+    isToday(year, month, date) {
+        const today = new Date();
+        return year === today.getFullYear() && 
+               month === today.getMonth() && 
+               date === today.getDate();
+    }
+    
+    // Navigate to different month
+    navigateToMonth(direction) {
+        this.currentDate.setMonth(this.currentDate.getMonth() + direction);
+        this.render();
+        this.updateMonthlySummary();
+    }
+    
+    // Navigation methods
+    previousMonth() {
+        this.navigateToMonth(-1);
+    }
+    
+    nextMonth() {
+        this.navigateToMonth(1);
+    }
+    
+    // Show day details modal
+    showDayDetails(dateStr, shifts) {
+        this.selectedDate = dateStr;
+        const modal = document.getElementById('shiftModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalContent = document.getElementById('modalContent');
+        
+        if (!modal || !modalTitle || !modalContent) return;
+        
+        const date = new Date(dateStr);
+        const formattedDate = date.toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+        
+        modalTitle.textContent = formattedDate;
+        modalContent.innerHTML = this.renderModalContent(dateStr, shifts);
+        modal.style.display = 'block';
+    }
+    
+    // Render modal content
+    renderModalContent(dateStr, shifts) {
+        if (shifts.length === 0) {
+            return `
+                <p style="text-align: center; color: #666; margin: 20px 0;">No shifts scheduled for this day</p>
+                <div style="text-align: center;">
+                    <button class="action-btn" onclick="calendarManager.addShiftForDate('${dateStr}')">
+                        ➕ Add Shift
+                    </button>
                 </div>
-                `
-                    : ""
-                }
-                <div class="detail-separator"></div>
-                <div class="detail-item total">
-                    <span class="detail-label">Total Pay:</span>
-                    <span class="detail-value">¥${Math.round(
-                      shiftData.payInfo.totalPay
-                    ).toLocaleString()}</span>
+            `;
+        }
+        
+        let content = '<div style="margin-bottom: 20px;">';
+        shifts.forEach((shift, index) => {
+            const payInfo = shift.payInfo || {};
+            const workingHours = shift.workingTime ? (shift.workingTime.netHours || 0).toFixed(2) : '0.00';
+            const totalPay = payInfo.totalPay || 0;
+            
+            content += `
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 10px;">
+                    <h4 style="margin: 0 0 10px 0; color: #667eea;">${shift.shiftType || 'Unknown Shift'}</h4>
+                    <p style="margin: 5px 0;"><strong>Time:</strong> ${shift.startTime || 'N/A'} - ${shift.endTime || 'N/A'}</p>
+                    <p style="margin: 5px 0;"><strong>Working Hours:</strong> ${workingHours}h</p>
+                    <p style="margin: 5px 0;"><strong>Total Pay:</strong> ¥${totalPay.toLocaleString()}</p>
+                    <div style="margin-top: 10px;">
+                        <button class="action-btn" style="margin-right: 10px; padding: 8px 15px; font-size: 0.9rem;" onclick="calendarManager.editShift(${index}, '${dateStr}')">
+                            ✏️ Edit
+                        </button>
+                        <button class="action-btn danger" style="padding: 8px 15px; font-size: 0.9rem;" onclick="calendarManager.deleteShift(${index}, '${dateStr}')">
+                            🗑️ Delete
+                        </button>
+                    </div>
                 </div>
-                <div class="detail-item">
-                    <span class="detail-label">Take-home (77.7%):</span>
-                    <span class="detail-value">¥${Math.round(
-                      shiftData.payInfo.totalPay * 0.777
-                    ).toLocaleString()}</span>
-                </div>
+            `;
+        });
+        content += '</div>';
+        content += `
+            <div style="text-align: center;">
+                <button class="action-btn" onclick="calendarManager.addShiftForDate('${dateStr}')">
+                    ➕ Add Another Shift
+                </button>
             </div>
         `;
-
-    // Show edit and delete buttons, hide add button
-    document.querySelector(".btn-edit").style.display = "inline-block";
-    document.querySelector(".btn-delete").style.display = "inline-block";
-    document.querySelector(".btn-add").style.display = "none";
-  } else {
-    modalBody.innerHTML = `
-            <div class="no-shift">
-                <p>No shift recorded for this date.</p>
-                <p>Click "Add Shift" to record a new shift.</p>
-            </div>
+        
+        return content;
+    }
+    
+    // Close modal
+    closeModal() {
+        const modal = document.getElementById('shiftModal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+    
+    // Add shift for specific date
+    addShiftForDate(dateStr) {
+        localStorage.setItem('newShiftDate', dateStr);
+        window.location.href = '../index.html#calculator';
+    }
+    
+    // Edit shift
+    editShift(index, dateStr) {
+        const dayShifts = this.getShiftsForDate(dateStr);
+        if (dayShifts[index]) {
+            const shiftData = {
+                date: dateStr,
+                shiftType: dayShifts[index].shiftType,
+                startTime: dayShifts[index].startTime,
+                endTime: dayShifts[index].endTime
+            };
+            localStorage.setItem('editShiftData', JSON.stringify(shiftData));
+            window.location.href = '../index.html#calculator';
+        }
+    }
+    
+    // Delete shift
+    deleteShift(index, dateStr) {
+        if (!confirm('Are you sure you want to delete this shift?')) return;
+        
+        const dayShifts = this.getShiftsForDate(dateStr);
+        if (!dayShifts[index]) return;
+        
+        // Find and remove the shift from weeklyData
+        const shiftToDelete = dayShifts[index];
+        const globalIndex = this.weeklyData.findIndex(shift => 
+            shift.workDate === shiftToDelete.workDate &&
+            shift.startTime === shiftToDelete.startTime &&
+            shift.endTime === shiftToDelete.endTime &&
+            shift.shiftType === shiftToDelete.shiftType
+        );
+        
+        if (globalIndex !== -1) {
+            this.weeklyData.splice(globalIndex, 1);
+            this.saveData();
+            this.render();
+            this.updateMonthlySummary();
+            this.closeModal();
+            this.showNotification('Shift deleted successfully', 'success');
+        }
+    }
+    
+    // Update monthly summary
+    updateMonthlySummary() {
+        const year = this.currentDate.getFullYear();
+        const month = this.currentDate.getMonth();
+        
+        // Filter shifts for current month
+        const monthlyShifts = this.weeklyData.filter(shift => {
+            const shiftDate = new Date(shift.workDate);
+            return shiftDate.getFullYear() === year && shiftDate.getMonth() === month;
+        });
+        
+        // Calculate totals
+        const stats = this.calculateMonthlyStats(monthlyShifts);
+        
+        // Update display
+        this.updateSummaryDisplay(stats);
+    }
+    
+    // Calculate monthly statistics
+    calculateMonthlyStats(shifts) {
+        let totalShifts = shifts.length;
+        let totalHours = 0;
+        let totalEarnings = 0;
+        
+        shifts.forEach(shift => {
+            if (shift.workingTime && shift.workingTime.netHours) {
+                totalHours += shift.workingTime.netHours;
+            }
+            if (shift.payInfo && shift.payInfo.totalPay) {
+                totalEarnings += shift.payInfo.totalPay;
+            }
+        });
+        
+        const averageDaily = totalShifts > 0 ? totalEarnings / totalShifts : 0;
+        
+        return {
+            totalShifts,
+            totalHours,
+            totalEarnings,
+            averageDaily
+        };
+    }
+    
+    // Update summary display
+    updateSummaryDisplay(stats) {
+        const elements = {
+            totalShifts: document.getElementById('totalShifts'),
+            totalHours: document.getElementById('totalHours'),
+            totalEarnings: document.getElementById('totalEarnings'),
+            averageDaily: document.getElementById('averageDaily')
+        };
+        
+        if (elements.totalShifts) elements.totalShifts.textContent = stats.totalShifts;
+        if (elements.totalHours) elements.totalHours.textContent = `${stats.totalHours.toFixed(1)}h`;
+        if (elements.totalEarnings) elements.totalEarnings.textContent = `¥${stats.totalEarnings.toLocaleString()}`;
+        if (elements.averageDaily) elements.averageDaily.textContent = `¥${Math.round(stats.averageDaily).toLocaleString()}`;
+    }
+    
+    // Action methods
+    addNewShift() {
+        window.location.href = '../index.html#calculator';
+    }
+    
+    exportCalendar() {
+        const year = this.currentDate.getFullYear();
+        const month = this.currentDate.getMonth();
+        
+        // Filter shifts for current month
+        const monthlyShifts = this.weeklyData.filter(shift => {
+            const shiftDate = new Date(shift.workDate);
+            return shiftDate.getFullYear() === year && shiftDate.getMonth() === month;
+        });
+        
+        if (monthlyShifts.length === 0) {
+            this.showNotification('No data to export for this month', 'warning');
+            return;
+        }
+        
+        // Create CSV content
+        let csvContent = 'Date,Shift Type,Start Time,End Time,Working Hours,Total Pay\n';
+        monthlyShifts.forEach(shift => {
+            const workingHours = shift.workingTime ? shift.workingTime.netHours.toFixed(2) : '0.00';
+            const totalPay = shift.payInfo ? shift.payInfo.totalPay : 0;
+            csvContent += `${shift.workDate},${shift.shiftType || 'Unknown'},${shift.startTime || 'N/A'},${shift.endTime || 'N/A'},${workingHours},${totalPay}\n`;
+        });
+        
+        // Download CSV
+        this.downloadFile(csvContent, `shift_calendar_${year}_${String(month + 1).padStart(2, '0')}.csv`, 'text/csv');
+        this.showNotification('Calendar data exported successfully', 'success');
+    }
+    
+    clearMonth() {
+        if (!confirm('Are you sure you want to clear all shifts for this month? This action cannot be undone.')) return;
+        
+        const year = this.currentDate.getFullYear();
+        const month = this.currentDate.getMonth();
+        
+        // Filter out shifts for current month
+        this.weeklyData = this.weeklyData.filter(shift => {
+            const shiftDate = new Date(shift.workDate);
+            return !(shiftDate.getFullYear() === year && shiftDate.getMonth() === month);
+        });
+        
+        this.saveData();
+        this.render();
+        this.updateMonthlySummary();
+        this.showNotification('Month cleared successfully', 'success');
+    }
+    
+    // Utility methods
+    downloadFile(content, filename, mimeType) {
+        const blob = new Blob([content], { type: mimeType });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+    }
+    
+    showNotification(message, type = 'info') {
+        const notification = document.createElement('div');
+        const colors = {
+            success: '#28a745',
+            warning: '#ffc107',
+            error: '#dc3545',
+            info: '#667eea'
+        };
+        
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: ${colors[type] || colors.info};
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            z-index: 3000;
+            font-weight: 600;
+            animation: slideInRight 0.3s ease-out;
+            max-width: 300px;
+            word-wrap: break-word;
         `;
-
-    // Hide edit and delete buttons, show add button
-    document.querySelector(".btn-edit").style.display = "none";
-    document.querySelector(".btn-delete").style.display = "none";
-    document.querySelector(".btn-add").style.display = "inline-block";
-  }
-
-  // Update break toggle state when modal opens
-  updateBreakToggleState();
-  
-  // Show modal
-  document.getElementById("dayModal").style.display = "block";
-}
-
-/**
- * Close day details modal
- */
-function closeDayModal() {
-  // Hide modal
-  document.getElementById("dayModal").style.display = "none";
-  
-  // Reset form visibility
-  document.getElementById("modalBody").style.display = "block";
-  document.getElementById("shiftForm").style.display = "none";
-  
-  // Only reset button visibility when actually closing the modal
-  if (selectedDate) {
-    resetModalButtons();
-  }
-  
-  selectedDate = null;
-}
-
-/**
- * Navigate to previous month
- */
-function previousMonth() {
-  currentDate.setMonth(currentDate.getMonth() - 1);
-  renderCalendar();
-  updateMonthlySummary();
-}
-
-/**
- * Navigate to next month
- */
-function nextMonth() {
-  currentDate.setMonth(currentDate.getMonth() + 1);
-  renderCalendar();
-  updateMonthlySummary();
-}
-
-/**
- * Initialize salary period inputs
- */
-function initializeSalaryPeriod() {
-  const salaryStartInput = document.getElementById("salaryStartDate");
-  const salaryEndInput = document.getElementById("salaryEndDate");
-  
-  // Load saved dates from localStorage
-  const savedStartDate = localStorage.getItem("salaryStartDate");
-  const savedEndDate = localStorage.getItem("salaryEndDate");
-  
-  if (savedStartDate) {
-    salaryStartInput.value = savedStartDate;
-  }
-  if (savedEndDate) {
-    salaryEndInput.value = savedEndDate;
-  }
-  
-  // Add event listeners to save dates and update summary
-  salaryStartInput.addEventListener("change", function() {
-    localStorage.setItem("salaryStartDate", this.value);
-    updateMonthlySummary();
-  });
-  
-  salaryEndInput.addEventListener("change", function() {
-    localStorage.setItem("salaryEndDate", this.value);
-    updateMonthlySummary();
-  });
-}
-
-/**
- * Update monthly summary statistics
- */
-function updateMonthlySummary() {
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth();
-
-  // Filter data for current month
-  const monthlyData = weeklyData.filter((entry) => {
-    const entryDate = createLocalDate(entry.workDate);
-    return entryDate.getFullYear() === year && entryDate.getMonth() === month;
-  });
-
-  // Calculate statistics
-  let totalDays = monthlyData.length;
-  let dayShifts = monthlyData.filter((e) => e.shiftType === "C341").length;
-  let nightShifts = monthlyData.filter((e) => e.shiftType === "C342").length;
-  let totalHours = monthlyData.reduce(
-    (sum, e) => sum + e.workingTime.netHours,
-    0
-  );
-  let totalEarnings = monthlyData.reduce(
-    (sum, e) => sum + e.payInfo.totalPay,
-    0
-  );
-  let takeHome = totalEarnings * 0.777; // 77.7% after tax
-
-  // Get user-defined salary period dates
-  const salaryStartInput = document.getElementById("salaryStartDate");
-  const salaryEndInput = document.getElementById("salaryEndDate");
-  
-  // Filter data for salary period if dates are set
-  let filteredData = monthlyData;
-  if (salaryStartInput.value && salaryEndInput.value) {
-    // Use createLocalDate for consistent date handling (fixes timezone issues)
-    const startDate = createLocalDate(salaryStartInput.value);
-    const endDate = createLocalDate(salaryEndInput.value);
-    
-    filteredData = weeklyData.filter((entry) => {
-      const entryDate = createLocalDate(entry.workDate);
-      const isIncluded = entryDate >= startDate && entryDate <= endDate;
-      
-      // Debug logging for salary period filtering
-      console.log(`Salary Period Filter - ${entry.workDate}: entryDate=${entryDate.toISOString()}, startDate=${startDate.toISOString()}, endDate=${endDate.toISOString()}, included=${isIncluded}`);
-      
-      // Include both start and end dates in the range
-      return isIncluded;
-    });
-    
-    // Recalculate statistics with filtered data
-    const totalDaysFiltered = filteredData.length;
-    const dayShiftsFiltered = filteredData.filter((e) => e.shiftType === "C341").length;
-    const nightShiftsFiltered = filteredData.filter((e) => e.shiftType === "C342").length;
-    const totalHoursFiltered = filteredData.reduce((sum, e) => sum + e.workingTime.netHours, 0);
-    const totalEarningsFiltered = filteredData.reduce((sum, e) => sum + e.payInfo.totalPay, 0);
-    const takeHomeFiltered = totalEarningsFiltered * 0.777;
-    
-    // Debug summary
-    console.log(`Salary Period Summary: Found ${totalDaysFiltered} shifts in range ${salaryStartInput.value} to ${salaryEndInput.value}`);
-    console.log(`Filtered shifts:`, filteredData.map(s => s.workDate));
-    
-    // Use filtered data for display
-    totalDays = totalDaysFiltered;
-    dayShifts = dayShiftsFiltered;
-    nightShifts = nightShiftsFiltered;
-    totalHours = totalHoursFiltered;
-    totalEarnings = totalEarningsFiltered;
-    takeHome = takeHomeFiltered;
-  }
-  document.getElementById("totalDaysWorked").textContent = totalDays;
-  document.getElementById("dayShifts").textContent = dayShifts;
-  document.getElementById("nightShifts").textContent = nightShifts;
-  document.getElementById("totalHours").textContent = `${totalHours.toFixed(
-    1
-  )}h`;
-  document.getElementById("totalEarnings").textContent = `¥${Math.round(
-    totalEarnings
-  ).toLocaleString()}`;
-  document.getElementById("takeHome").textContent = `¥${Math.round(
-    takeHome
-  ).toLocaleString()}`;
-
-  // Update quick stats
-  const avgDailyEarnings = totalDays > 0 ? totalEarnings / totalDays : 0;
-  const avgDailyHours = totalDays > 0 ? totalHours / totalDays : 0;
-
-  document.getElementById("avgDailyEarnings").textContent = `¥${Math.round(
-    avgDailyEarnings
-  ).toLocaleString()}`;
-  document.getElementById(
-    "avgDailyHours"
-  ).textContent = `${avgDailyHours.toFixed(1)}h`;
-
-  // Calculate monthly goal progress (assuming goal from settings)
-  const settings = JSON.parse(localStorage.getItem("settings") || "{}");
-  const monthlyGoal = settings.weeklyGoalPay
-    ? settings.weeklyGoalPay * 4
-    : 400000;
-  const progress = (totalEarnings / monthlyGoal) * 100;
-
-  document.getElementById("monthlyProgress").textContent = `${Math.min(
-    100,
-    progress
-  ).toFixed(0)}%`;
-
-  // Calculate work streak using the appropriate data set
-  const dataForStreak = (salaryStartInput.value && salaryEndInput.value) ? filteredData : monthlyData;
-  const streak = calculateWorkStreak(dataForStreak);
-  document.getElementById("streakDays").textContent = streak;
-}
-
-/**
- * Calculate consecutive work days streak
- */
-function calculateWorkStreak(data) {
-  if (data.length === 0) return 0;
-
-  // Sort by date
-  const sorted = data.sort(
-    (a, b) => createLocalDate(a.workDate) - createLocalDate(b.workDate)
-  );
-
-  let currentStreak = 1;
-  let maxStreak = 1;
-
-  for (let i = 1; i < sorted.length; i++) {
-    const prevDate = createLocalDate(sorted[i - 1].workDate);
-    const currDate = createLocalDate(sorted[i].workDate);
-    const dayDiff = (currDate - prevDate) / (1000 * 60 * 60 * 24);
-
-    if (dayDiff === 1) {
-      currentStreak++;
-      maxStreak = Math.max(maxStreak, currentStreak);
-    } else {
-      currentStreak = 1;
+        notification.textContent = message;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.style.animation = 'slideOutRight 0.3s ease-in';
+            setTimeout(() => {
+                if (document.body.contains(notification)) {
+                    document.body.removeChild(notification);
+                }
+            }, 300);
+        }, 3000);
     }
-  }
-
-  return maxStreak;
-}
-
-/**
- * Setup swipe gestures for mobile
- */
-function setupSwipeGestures() {
-  let touchStartX = 0;
-  let touchEndX = 0;
-
-  const calendarContainer = document.querySelector(".calendar-container");
-
-  calendarContainer.addEventListener(
-    "touchstart",
-    function (e) {
-      touchStartX = e.changedTouches[0].screenX;
-    },
-    { passive: true }
-  );
-
-  calendarContainer.addEventListener(
-    "touchend",
-    function (e) {
-      touchEndX = e.changedTouches[0].screenX;
-      handleSwipe();
-    },
-    { passive: true }
-  );
-
-  function handleSwipe() {
-    const swipeThreshold = 50;
-    const diff = touchStartX - touchEndX;
-
-    if (Math.abs(diff) > swipeThreshold) {
-      if (diff > 0) {
-        // Swipe left - next month
-        nextMonth();
-      } else {
-        // Swipe right - previous month
-        previousMonth();
-      }
+    
+    goBack() {
+        window.location.href = '../index.html';
     }
-  }
 }
 
-/**
- * Edit shift - redirect to calculator with shift data
- */
-function editShift() {
-  if (selectedDate) {
-    const dateStr = getLocalDateString(selectedDate);
-    const shiftData = getShiftDataForDate(dateStr);
-    
-    if (shiftData) {
-      // Store complete shift data for editing
-      const editData = {
-        date: dateStr,
-        shiftType: shiftData.shiftType,
-        startTime: shiftData.startTime,
-        endTime: shiftData.endTime
-      };
-      localStorage.setItem("editShiftData", JSON.stringify(editData));
-      window.location.href = "../index.html#calculator";
-    }
-  }
-}
+// Global calendar manager instance
+let calendarManager;
 
-/**
- * Show add shift form in modal
- */
-function showAddShiftForm() {
-  try {
-    // Hide day details and show form
-    document.getElementById("modalBody").style.display = "none";
-    document.getElementById("shiftForm").style.display = "block";
-    
-    // Update button visibility
-    const editBtn = document.getElementById("editBtn");
-    const deleteBtn = document.getElementById("deleteBtn");
-    const addBtn = document.getElementById("addBtn");
-    const cancelBtn = document.getElementById("cancelBtn");
-    const saveBtn = document.getElementById("saveBtn");
-    
-    if (editBtn) editBtn.style.display = "none";
-    if (deleteBtn) deleteBtn.style.display = "none";
-    if (addBtn) addBtn.style.display = "none";
-    if (cancelBtn) cancelBtn.style.display = "inline-block";
-    if (saveBtn) saveBtn.style.display = "inline-block";
-    
-    // Clear form
-    clearShiftForm();
-    
-    // Set default values
-    setDefaultShiftTimes();
-    
-    // Setup real-time calculation
-    setupPayCalculation();
-  } catch (error) {
-    console.error("Error in showAddShiftForm:", error);
-  }
-}
-
-/**
- * Original addShift function for compatibility
- */
-function addShift() {
-  showAddShiftForm();
-}
-
-/**
- * Delete shift entry
- */
-function deleteShift() {
-  if (selectedDate) {
-    const dateStr = getLocalDateString(selectedDate);
-    
-    // Show confirmation dialog
-    if (confirm("Are you sure you want to delete this shift entry? This action cannot be undone.")) {
-      // Remove the shift from weeklyData
-      weeklyData = weeklyData.filter(entry => entry.workDate !== dateStr);
-      
-      // Save updated data to localStorage
-      localStorage.setItem("weeklyData", JSON.stringify(weeklyData));
-      
-      // Update global reference for main app
-      if (typeof window.weeklyData !== 'undefined') {
-        window.weeklyData = weeklyData;
-      }
-      
-      // Close modal
-      closeDayModal();
-      
-      // Refresh calendar display
-      renderCalendar();
-      updateMonthlySummary();
-      
-      // Trigger update in main app if it's loaded
-      if (typeof updateDashboard === 'function') {
-        updateDashboard();
-      }
-      if (typeof updateWeeklyDisplay === 'function') {
-        updateWeeklyDisplay();
-      }
-      
-      // Show success message
-      showNotification("Shift deleted successfully!", "success");
-    }
-  }
-}
-
-/**
- * Show notification message
- */
-function showNotification(message, type = "info") {
-  // Create notification element
-  const notification = document.createElement("div");
-  notification.className = `notification notification-${type}`;
-  notification.textContent = message;
-  
-  // Add to document
-  document.body.appendChild(notification);
-  
-  // Show notification with animation
-  setTimeout(() => {
-    notification.classList.add("show");
-  }, 100);
-  
-  // Hide and remove after 3 seconds
-  setTimeout(() => {
-    notification.classList.remove("show");
-    setTimeout(() => {
-      document.body.removeChild(notification);
-    }, 300);
-  }, 3000);
-}
-
-// Close modal when clicking outside
-window.onclick = function (event) {
-  const modal = document.getElementById("dayModal");
-  if (event.target === modal) {
-    closeDayModal();
-  }
-};
-
-// Keyboard navigation
-document.addEventListener("keydown", function (e) {
-  if (e.key === "ArrowLeft") {
-    previousMonth();
-  } else if (e.key === "ArrowRight") {
-    nextMonth();
-  } else if (e.key === "Escape") {
-    closeDayModal();
-  }
+// Initialize calendar when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    calendarManager = new CalendarManager();
 });
 
-/**
- * Clear shift form inputs
- */
-function clearShiftForm() {
-  try {
-    const shiftTypeEl = document.getElementById("modalShiftType");
-    const startTimeEl = document.getElementById("modalStartTime");
-    const endTimeEl = document.getElementById("modalEndTime");
-    const shiftInfoEl = document.getElementById("modalShiftInfo");
-    
-    if (shiftTypeEl) shiftTypeEl.value = "";
-    if (startTimeEl) startTimeEl.value = "";
-    if (endTimeEl) endTimeEl.value = "";
-    if (shiftInfoEl) shiftInfoEl.style.display = "none";
-    
-    updatePayPreview();
-  } catch (error) {
-    console.error("Error clearing shift form:", error);
-  }
+// Export for global access
+if (typeof window !== 'undefined') {
+    window.CalendarManager = CalendarManager;
+    window.calendarManager = calendarManager;
 }
 
-/**
- * Set default shift times based on shift type
- */
-function setDefaultShiftTimes() {
-  const shiftType = document.getElementById("modalShiftType").value;
-  const startTimeInput = document.getElementById("modalStartTime");
-  const endTimeInput = document.getElementById("modalEndTime");
-  
-  if (shiftType && SHIFTS[shiftType]) {
-    const defaultTimes = getDefaultTimes(shiftType);
-    startTimeInput.value = defaultTimes.defaultStart;
-    endTimeInput.value = defaultTimes.defaultEnd;
-    
-    // Show break schedule
-    updateModalBreakDisplay();
-    document.getElementById("modalShiftInfo").style.display = "block";
-  } else {
-    document.getElementById("modalShiftInfo").style.display = "none";
-  }
-  
-  updatePayPreview();
-}
-
-/**
- * Setup pay calculation listeners
- */
-function setupPayCalculation() {
-  const inputs = ["modalShiftType", "modalStartTime", "modalEndTime"];
-  
-  inputs.forEach(id => {
-    const element = document.getElementById(id);
-    if (element) {
-      // Remove existing listeners to prevent duplicates
-      element.removeEventListener("change", debouncedUpdatePayPreview);
-      element.removeEventListener("input", debouncedUpdatePayPreview);
-      
-      // Add new listeners with debouncing for better performance
-      element.addEventListener("change", debouncedUpdatePayPreview);
-      element.addEventListener("input", debouncedUpdatePayPreview);
-    }
-  });
-  
-  // Update times when shift type changes
-  const shiftTypeElement = document.getElementById("modalShiftType");
-  if (shiftTypeElement) {
-    shiftTypeElement.removeEventListener("change", setDefaultShiftTimes);
-    shiftTypeElement.addEventListener("change", setDefaultShiftTimes);
-  }
-}
-
-/**
- * Debounced version of updatePayPreview for better performance
- */
-let payPreviewTimeout;
-function debouncedUpdatePayPreview() {
-  clearTimeout(payPreviewTimeout);
-  payPreviewTimeout = setTimeout(updatePayPreview, 150);
-}
-
-/**
- * Update pay preview in real-time
- */
-function updatePayPreview() {
-  const shiftType = document.getElementById("modalShiftType").value;
-  const startTime = document.getElementById("modalStartTime").value;
-  const endTime = document.getElementById("modalEndTime").value;
-  
-  // Update break display
-  updateModalBreakDisplay();
-  
-  // Update break summary for compact view
-  updateBreakSummary(shiftType, startTime, endTime);
-  
-  if (!shiftType || !startTime || !endTime) {
-    resetPayPreview();
-    return;
-  }
-  
-  // Validate shift times first
-  const validation = validateShiftTimes(shiftType, startTime, endTime);
-  if (!validation.isValid) {
-    resetPayPreview();
-    return;
-  }
-  
-  // Calculate using exact same logic as main calculator
-  const workingTime = calculateNetWorkingTime(startTime, endTime, shiftType);
-  const payInfo = calculatePayAmount(workingTime.netHours, startTime, endTime);
-  
-  // Update all preview elements
-  document.getElementById("previewTotalHours").textContent = `${(workingTime.totalMinutes / 60).toFixed(2)}h`;
-  document.getElementById("previewBreak").textContent = `${(workingTime.breakMinutes / 60).toFixed(2)}h`;
-  document.getElementById("previewNetHours").textContent = `${workingTime.netHours.toFixed(2)}h`;
-  document.getElementById("previewRegularPay").textContent = `¥${Math.round(payInfo.regularPay).toLocaleString()}`;
-  document.getElementById("previewTotalPay").textContent = `¥${Math.round(payInfo.totalPay).toLocaleString()}`;
-  document.getElementById("previewTakeHome").textContent = `¥${Math.round(payInfo.totalPay * 0.777).toLocaleString()}`;
-  
-  // Show/hide overtime pay
-  const overtimeRow = document.getElementById("previewOvertimeRow");
-  if (payInfo.overtimeHours > 0) {
-    document.getElementById("previewOvertimePay").textContent = `¥${Math.round(payInfo.overtimePay).toLocaleString()}`;
-    overtimeRow.style.display = "flex";
-  } else {
-    overtimeRow.style.display = "none";
-  }
-  
-  // Show/hide night pay
-  const nightRow = document.getElementById("previewNightRow");
-  if (payInfo.hasNightHours && payInfo.nightPay > 0) {
-    document.getElementById("previewNightPay").textContent = `¥${Math.round(payInfo.nightPay).toLocaleString()}`;
-    nightRow.style.display = "flex";
-  } else {
-    nightRow.style.display = "none";
-  }
-}
-
-/**
- * Reset pay preview to zero values
- */
-function resetPayPreview() {
-  document.getElementById("previewTotalHours").textContent = "0h";
-  document.getElementById("previewBreak").textContent = "0h";
-  document.getElementById("previewNetHours").textContent = "0h";
-  document.getElementById("previewRegularPay").textContent = "¥0";
-  document.getElementById("previewTotalPay").textContent = "¥0";
-  document.getElementById("previewTakeHome").textContent = "¥0";
-  document.getElementById("previewOvertimeRow").style.display = "none";
-  document.getElementById("previewNightRow").style.display = "none";
-}
-
-/**
- * Update break display in modal (using exact same logic as main calculator)
- */
-function updateModalBreakDisplay() {
-  const shiftType = document.getElementById("modalShiftType").value;
-  const startTime = document.getElementById("modalStartTime").value;
-  const endTime = document.getElementById("modalEndTime").value;
-  const breakList = document.getElementById("modalBreakList");
-  
-  if (!breakList) return;
-  
-  if (!shiftType || !startTime || !endTime) {
-    // Show all breaks if times not set
-    if (shiftType && SHIFTS[shiftType]) {
-      const shift = SHIFTS[shiftType];
-      breakList.innerHTML = "";
-      shift.breaks.forEach((breakItem) => {
-        const breakDiv = document.createElement("div");
-        breakDiv.className = "break-item";
-        breakDiv.innerHTML = `
-          <span>${breakItem.start} 〜 ${breakItem.end}</span>
-          <span><strong>${breakItem.minutes} mins</strong></span>
-        `;
-        breakList.appendChild(breakDiv);
-      });
-    }
-    return;
-  }
-  
-  // Get actual break details using calculator logic
-  const breakDetails = getBreakDetails(shiftType, startTime, endTime);
-  breakList.innerHTML = "";
-  
-  // Show taken breaks
-  breakDetails.taken.forEach((breakItem) => {
-    const breakDiv = document.createElement("div");
-    breakDiv.className = "break-item taken";
-    breakDiv.innerHTML = `
-      <span>${breakItem.start} 〜 ${breakItem.end}</span>
-      <span><strong>${breakItem.minutes} mins ✓</strong></span>
-    `;
-    breakList.appendChild(breakDiv);
-  });
-  
-  // Show skipped breaks
-  breakDetails.skipped.forEach((breakItem) => {
-    const breakDiv = document.createElement("div");
-    breakDiv.className = "break-item skipped";
-    breakDiv.innerHTML = `
-      <span>${breakItem.start} 〜 ${breakItem.end}</span>
-      <span style="opacity: 0.6;"><strong>${breakItem.minutes} mins (skipped)</strong></span>
-    `;
-    breakList.appendChild(breakDiv);
-  });
-  
-  // Add summary if there are skipped breaks
-  if (breakDetails.skipped.length > 0) {
-    const summaryDiv = document.createElement("div");
-    summaryDiv.className = "break-summary";
-    summaryDiv.innerHTML = `
-      <p style="margin: 0; font-size: 0.9rem;">
-        <strong>Break Summary:</strong><br>
-        Taken: ${breakDetails.totalMinutes} minutes<br>
-        Skipped: ${breakDetails.skipped.reduce((sum, b) => sum + b.minutes, 0)} minutes
-      </p>
-    `;
-    breakList.appendChild(summaryDiv);
-  }
-}
-
-/**
- * Calculate net working time using exact calculator logic
- */
-function calculateNetWorkingTime(startTime, endTime, shiftType) {
-  let startMinutes = timeToMinutes(startTime);
-  let endMinutes = timeToMinutes(endTime);
-  
-  // Handle overnight shifts
-  if (endMinutes < startMinutes) {
-    endMinutes += 24 * 60; // Add 24 hours
-  }
-  
-  const totalMinutes = endMinutes - startMinutes;
-  
-  // Use dynamic break calculation from break_schedule.js
-  const breakMinutes = getActualBreakMinutes(shiftType, startTime, endTime);
-  const netMinutes = Math.max(0, totalMinutes - breakMinutes);
-  
-  return {
-    totalMinutes,
-    breakMinutes,
-    netMinutes,
-    netHours: netMinutes / 60,
-  };
-}
-
-/**
- * Calculate pay using exact calculator logic
- */
-function calculatePayAmount(netHours, startTime, endTime) {
-  // Load fresh settings each time to ensure accuracy
-  const settings = JSON.parse(localStorage.getItem("settings") || JSON.stringify({
-    baseRate: PAY_RATES.base,
-    overtimeRate: PAY_RATES.overtime,
-    weeklyGoalHours: 40,
-    weeklyGoalPay: 100000,
-  }));
-  
-  const baseRate = settings.baseRate || PAY_RATES.base;
-  const overtimeRate = settings.overtimeRate || PAY_RATES.overtime;
-  
-  // Calculate regular and overtime hours
-  const regularHours = Math.min(netHours, TIME_THRESHOLDS.regularHoursLimit);
-  const overtimeHours = Math.max(0, netHours - TIME_THRESHOLDS.regularHoursLimit);
-  
-  // Calculate night hours
-  const nightInfo = calculateNightHours(startTime, endTime);
-  
-  // Calculate pay
-  let regularPay = 0;
-  let overtimePay = 0;
-  let nightPay = 0;
-  
-  if (nightInfo.hasNightHours) {
-    // If shift includes night hours, use night rate for those hours
-    const nightHours = Math.min(nightInfo.nightHours, netHours);
-    const remainingHours = netHours - nightHours;
-    
-    nightPay = nightHours * overtimeRate; // Night rate = overtime rate
-    
-    if (remainingHours > 0) {
-      const remainingRegular = Math.min(remainingHours, TIME_THRESHOLDS.regularHoursLimit);
-      const remainingOvertime = Math.max(0, remainingHours - TIME_THRESHOLDS.regularHoursLimit);
-      
-      regularPay = remainingRegular * baseRate;
-      overtimePay = remainingOvertime * overtimeRate;
-    }
-  } else {
-    // Standard calculation without night premium
-    regularPay = regularHours * baseRate;
-    overtimePay = overtimeHours * overtimeRate;
-  }
-  
-  return {
-    regularHours,
-    overtimeHours,
-    nightHours: nightInfo.nightHours,
-    regularPay,
-    overtimePay,
-    nightPay,
-    totalPay: regularPay + overtimePay + nightPay,
-    hasNightHours: nightInfo.hasNightHours,
-  };
-}
-
-/**
- * Cancel shift form and return to day details
- */
-function cancelShiftForm() {
-  // Show day details and hide form
-  document.getElementById("modalBody").style.display = "block";
-  document.getElementById("shiftForm").style.display = "none";
-  
-  // Reset button visibility to show appropriate buttons for current date
-  if (selectedDate) {
-    const shiftData = getShiftDataForDate(getLocalDateString(selectedDate));
-    
-    const editBtn = document.getElementById("editBtn");
-    const deleteBtn = document.getElementById("deleteBtn");
-    const addBtn = document.getElementById("addBtn");
-    const cancelBtn = document.getElementById("cancelBtn");
-    const saveBtn = document.getElementById("saveBtn");
-    
-    if (shiftData) {
-      // Show edit and delete buttons for existing shifts
-      if (editBtn) editBtn.style.display = "inline-block";
-      if (deleteBtn) deleteBtn.style.display = "inline-block";
-      if (addBtn) addBtn.style.display = "none";
-    } else {
-      // Show add button for days without shifts
-      if (editBtn) editBtn.style.display = "none";
-      if (deleteBtn) deleteBtn.style.display = "none";
-      if (addBtn) addBtn.style.display = "inline-block";
-    }
-    
-    // Hide form buttons
-    if (cancelBtn) cancelBtn.style.display = "none";
-    if (saveBtn) saveBtn.style.display = "none";
-  }
-}
-
-/**
- * Save shift data
- */
-function saveShift() {
-  if (!selectedDate) return;
-  
-  const dateStr = getLocalDateString(selectedDate);
-  const shiftType = document.getElementById("modalShiftType").value;
-  const startTime = document.getElementById("modalStartTime").value;
-  const endTime = document.getElementById("modalEndTime").value;
-  
-  // Validation
-  if (!shiftType) {
-    showNotification("Please select a shift type", "error");
-    return;
-  }
-  
-  if (!startTime || !endTime) {
-    let missingFields = [];
-    if (!startTime) missingFields.push("Start Time");
-    if (!endTime) missingFields.push("End Time");
-    
-    showNotification(`Please fill in: ${missingFields.join(" and ")}`, "error");
-    return;
-  }
-  
-  // Validate shift times
-  const validation = validateShiftTimes(shiftType, startTime, endTime);
-  if (!validation.isValid) {
-    showNotification("Please correct the following errors:\n" + validation.errors.join("\n"), "error");
-    return;
-  }
-  
-  // Calculate working time and pay using exact calculator logic
-  const workingTime = calculateNetWorkingTime(startTime, endTime, shiftType);
-  const payInfo = calculatePayAmount(workingTime.netHours, startTime, endTime);
-  
-  // Create shift entry with same structure as main calculator
-  const shiftEntry = {
-    workDate: dateStr,
-    shiftType,
-    startTime,
-    endTime,
-    workingTime,
-    payInfo,
-    timestamp: new Date().toISOString(),
-  };
-  
-  // Remove existing entry for this date if any
-  weeklyData = weeklyData.filter(entry => entry.workDate !== dateStr);
-  
-  // Add new entry
-  weeklyData.push(shiftEntry);
-  
-  // Save to localStorage
-  localStorage.setItem("weeklyData", JSON.stringify(weeklyData));
-  
-  // Update global reference for main app
-  if (typeof window.weeklyData !== 'undefined') {
-    window.weeklyData = weeklyData;
-  }
-  
-  // Close modal and refresh
-  closeDayModal();
-  renderCalendar();
-  updateMonthlySummary();
-  
-  // Trigger update in main app if it's loaded
-  if (typeof updateDashboard === 'function') {
-    updateDashboard();
-  }
-  if (typeof updateWeeklyDisplay === 'function') {
-    updateWeeklyDisplay();
-  }
-  
-  showNotification("Shift saved successfully!", "success");
-}
-
-/**
- * Reset modal buttons to default state
- */
-function resetModalButtons() {
-  if (!selectedDate) {
-    return;
-  }
-  
-  const shiftData = getShiftDataForDate(getLocalDateString(selectedDate));
-  
-  const editBtn = document.getElementById("editBtn");
-  const deleteBtn = document.getElementById("deleteBtn");
-  const addBtn = document.getElementById("addBtn");
-  const cancelBtn = document.getElementById("cancelBtn");
-  const saveBtn = document.getElementById("saveBtn");
-  
-  if (shiftData) {
-    if (editBtn) editBtn.style.display = "inline-block";
-    if (deleteBtn) deleteBtn.style.display = "inline-block";
-    if (addBtn) addBtn.style.display = "none";
-  } else {
-    if (editBtn) editBtn.style.display = "none";
-    if (deleteBtn) deleteBtn.style.display = "none";
-    if (addBtn) addBtn.style.display = "inline-block";
-  }
-  
-  if (cancelBtn) cancelBtn.style.display = "none";
-  if (saveBtn) saveBtn.style.display = "none";
-}
-
-/**
- * Enhanced edit shift function
- */
-function editShift() {
-  if (selectedDate) {
-    const dateStr = getLocalDateString(selectedDate);
-    const shiftData = getShiftDataForDate(dateStr);
-    
-    if (shiftData) {
-      // Show form with existing data
-      document.getElementById("modalBody").style.display = "none";
-      document.getElementById("shiftForm").style.display = "block";
-      
-      // Populate form with existing data
-      document.getElementById("modalShiftType").value = shiftData.shiftType;
-      document.getElementById("modalStartTime").value = shiftData.startTime;
-      document.getElementById("modalEndTime").value = shiftData.endTime;
-      
-      // Show shift info and update break display
-      if (shiftData.shiftType && SHIFTS[shiftData.shiftType]) {
-        document.getElementById("modalShiftInfo").style.display = "block";
-      }
-      
-      // Update button visibility
-      document.getElementById("editBtn").style.display = "none";
-      document.getElementById("deleteBtn").style.display = "none";
-      document.getElementById("addBtn").style.display = "none";
-      document.getElementById("cancelBtn").style.display = "inline-block";
-      document.getElementById("saveBtn").style.display = "inline-block";
-      
-      // Setup calculation and update preview
-      setupPayCalculation();
-      updatePayPreview();
-    }
-  }
-}
-
-/**
- * Format date to local date string (fixing timezone issue)
- * @param {string|Date} dateInput - Date string or Date object
- * @returns {string} - Local date string in YYYY-MM-DD format
- */
-function formatLocalDate(dateInput) {
-  let date;
-  if (typeof dateInput === 'string') {
-    date = new Date(dateInput);
-  } else {
-    date = dateInput;
-  }
-  
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-/**
- * Get local date string from Date object (avoiding timezone issues)
- * @param {Date} date - Date object
- * @returns {string} - Local date string in YYYY-MM-DD format
- */
-function getLocalDateString(date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-/**
- * Create a local Date object from a date string (avoiding timezone issues)
- * @param {string} dateStr - Date string in YYYY-MM-DD format
- * @returns {Date} - Date object in local timezone
- */
-function createLocalDate(dateStr) {
-  return new Date(dateStr + "T00:00:00");
-}
-
-/**
- * Navigate to main app with specific page
- * @param {string} page - Page to navigate to
- */
-function navigateToMainApp(page) {
-  // Store current calendar state
-  localStorage.setItem('calendarReturnState', JSON.stringify({
-    month: currentDate.getMonth(),
-    year: currentDate.getFullYear(),
-    selectedDate: selectedDate ? getLocalDateString(selectedDate) : null
-  }));
-  
-  // Navigate to main app
-  if (page) {
-    window.location.href = `../index.html#${page}`;
-  } else {
-    window.location.href = '../index.html';
-  }
-}
-
-// Break Details Toggle Functionality
-let breakDetailsVisible = false;
-
-/**
- * Initialize break toggle functionality
- */
-function initializeBreakToggle() {
-  // Set initial state
-  breakDetailsVisible = localStorage.getItem('breakDetailsVisible') === 'true';
-  updateBreakToggleState();
-}
-
-/**
- * Toggle break details visibility
- */
-function toggleBreakDetails() {
-  breakDetailsVisible = !breakDetailsVisible;
-  localStorage.setItem('breakDetailsVisible', breakDetailsVisible.toString());
-  updateBreakToggleState();
-  
-  // Add haptic feedback on mobile
-  if (navigator.vibrate) {
-    navigator.vibrate(50);
-  }
-}
-
-/**
- * Update the break toggle state and UI
- */
-function updateBreakToggleState() {
-  const toggleBtn = document.getElementById('breakToggleBtn');
-  const breakList = document.getElementById('modalBreakList');
-  const breakSummary = document.getElementById('breakSummaryOnly');
-  
-  if (!toggleBtn || !breakList || !breakSummary) return;
-  
-  if (breakDetailsVisible) {
-    // Show detailed break list
-    breakList.classList.add('expanded');
-    breakList.style.display = 'flex';
-    breakSummary.style.display = 'none';
-    
-    // Update button appearance
-    toggleBtn.classList.add('expanded');
-    toggleBtn.querySelector('.toggle-text').textContent = 'Hide Details';
-    toggleBtn.querySelector('.toggle-icon').textContent = '🙈';
-  } else {
-    // Hide detailed break list
-    breakList.classList.remove('expanded');
-    setTimeout(() => {
-      if (!breakList.classList.contains('expanded')) {
-        breakList.style.display = 'none';
-      }
-    }, 300); // Wait for animation to complete
-    
-    breakSummary.style.display = 'block';
-    
-    // Update button appearance
-    toggleBtn.classList.remove('expanded');
-    toggleBtn.querySelector('.toggle-text').textContent = 'Show Details';
-    toggleBtn.querySelector('.toggle-icon').textContent = '👁️';
-  }
-}
-
-/**
- * Update break summary in compact view
- */
-function updateBreakSummary(shiftType, startTime, endTime) {
-  const breakSummary = document.getElementById('breakSummaryOnly');
-  if (!breakSummary || !shiftType) return;
-  
-  try {
-    const breakDetails = getBreakDetails(shiftType, startTime, endTime);
-    const breakMinutes = getActualBreakMinutes(shiftType, startTime, endTime);
-    const breakHours = (breakMinutes / 60).toFixed(1);
-    
-    let summaryText = `Total Break Time: ${breakHours}h`;
-    
-    if (breakDetails.taken.length > 0) {
-      summaryText += ` • ${breakDetails.taken.length} breaks taken`;
-    }
-    
-    if (breakDetails.skipped.length > 0) {
-      summaryText += ` • ${breakDetails.skipped.length} breaks skipped`;
-    }
-    
-    breakSummary.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <span>⏱️</span>
-        <span>${summaryText}</span>
-      </div>
-    `;
-  } catch (error) {
-    console.error('Error updating break summary:', error);
-    breakSummary.innerHTML = '<div>Break information not available</div>';
-  }
-}
