@@ -17,16 +17,16 @@ const SHIFTS = {
     C342: {
         name: "Night Shift",
         defaultStart: "16:45",
-        defaultEnd: "01:25",
+        defaultEnd: "04:25", // Corrected end time to account for 3 additional hours
         breaks: [
             { start: "18:45", end: "18:55", minutes: 10 },
             { start: "20:55", end: "21:40", minutes: 45 },
             { start: "23:10", end: "23:20", minutes: 10 },
             { start: "00:50", end: "01:00", minutes: 10 },
             { start: "02:25", end: "02:35", minutes: 10 },
-            { start: "03:35", end: "03:50", minutes: 15 }
+            { start: "03:35", end: "03:50", minutes: 15 } // This break seems to be after the original end time, will need to be adjusted or confirmed.
         ],
-        totalBreakMinutes: 100
+        totalBreakMinutes: 100 // The `getActualBreakMinutes` function dynamically calculates breaks, so this static value is less critical but should reflect the default breaks within the default shift duration.
     }
 };
 
@@ -94,16 +94,28 @@ function calculateNightHours(startTime, endTime) {
     const nightStartMinutes = TIME_THRESHOLDS.nightStartHour * 60; // 22:00 in minutes
     let nightHours = 0;
     
-    // Check if work extends past 22:00
-    if (endMinutes > nightStartMinutes) {
-        const nightStart = Math.max(startMinutes, nightStartMinutes);
-        nightHours = (endMinutes - nightStart) / 60;
+    nightHours = 0;
+    const nightStart = TIME_THRESHOLDS.nightStartHour * 60; // 22:00
+    const nightEnd = (24 + 6) * 60; // 06:00 next day
+
+    // Calculate night hours from 22:00 to midnight
+    const overlap1Start = Math.max(startMinutes, nightStart);
+    const overlap1End = Math.min(endMinutes, 24 * 60); // Up to midnight
+    if (overlap1End > overlap1Start) {
+        nightHours += (overlap1End - overlap1Start) / 60;
     }
-    
-    // Handle case where shift starts after midnight but includes night hours
-    if (startMinutes < endMinutes && startMinutes < 6 * 60) { // Before 6 AM
-        nightHours += Math.min(endMinutes, 6 * 60) / 60;
+
+    // Calculate night hours from midnight to 06:00 (next day)
+    const overlap2Start = Math.max(startMinutes, 24 * 60); // From midnight
+    const overlap2End = Math.min(endMinutes, nightEnd); // Up to 06:00 next day
+    if (overlap2End > overlap2Start) {
+        nightHours += (overlap2End - overlap2Start) / 60;
     }
+
+    // Round to two decimal places to avoid floating point inaccuracies
+    nightHours = parseFloat(nightHours.toFixed(2));
+
+
     
     return {
         nightHours: Math.max(0, nightHours),
